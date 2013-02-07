@@ -2,8 +2,9 @@ Source: gromit-mpx
 Section: x11
 Priority: optional
 Maintainer: Christian Beier <dontmind@freeshell.org>
-Build-Depends: debhelper (>= 4.0.0), libgtk-3-dev
-Standards-Version: 3.6.2
+Build-Depends: debhelper (>= 9), dh-autoreconf, libgtk-3-dev
+Standards-Version: 3.9.4
+Homepage: http://sourceforge.net/projects/gromit-mpx
 
 Package: gromit-mpx
 Architecture: any
