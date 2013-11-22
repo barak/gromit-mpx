@@ -1,8 +1,9 @@
 gromit-mpx (1.1-2) unstable; urgency=low
 
   * Document changing default hotkey, in Debian, to Pause (closes: #730182)
+  * Update debian/control: bump policy version, update repo url
 
- -- Barak A. Pearlmutter <bap@debian.org>  Fri, 22 Nov 2013 11:37:00 +0000
+ -- Barak A. Pearlmutter <bap@debian.org>  Fri, 22 Nov 2013 12:10:59 +0000
 
 gromit-mpx (1.1-1) unstable; urgency=low
 
