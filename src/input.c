@@ -4,13 +4,38 @@
  */
 
 #include <string.h>
+#include <gdk/gdk.h>
+#ifdef GDK_WINDOWING_X11
 #include <X11/extensions/XInput2.h>
+#include <gdk/gdkx.h>
+#endif
+#ifdef GDK_WINDOWING_WAYLAND
+#include <gdk/gdkwayland.h>
+#endif
 
 #include "input.h"
 
 
 void setup_input_devices (GromitData *data)
 {
+  /*
+     first, check platform
+  */
+  gchar *backend;
+  g_printerr("Supported backends: ");
+#ifdef GDK_WINDOWING_X11
+  g_printerr("x11 ");
+  if (GDK_IS_X11_DISPLAY(data->display))
+    backend = "x11";
+#endif
+#ifdef GDK_WINDOWING_WAYLAND
+  g_printerr("wayland ");
+  if (GDK_IS_WAYLAND_DISPLAY(data->display))
+    backend = "wayland";
+#endif
+  g_printerr("\nUsing backend: %s\n", backend);
+
+
   /* ungrab all */
   release_grab (data, NULL); 
 
@@ -48,10 +73,10 @@ void setup_input_devices (GromitData *data)
           devdata->index = i;
 
 	  /* get attached keyboard and grab the hotkey */
-	  if (!data->hot_keycode)
+	  if (!data->hot_keycode || !data->undo_keycode)
 	    {
 	      g_printerr("ERROR: Grabbing hotkey from attached keyboard "
-                         "of '%s' failed, no hotkey defined.\n",
+                         "of '%s' failed, no hotkeys defined.\n",
 			 gdk_device_get_name(device));
 	      g_free(devdata);
 	      continue;
@@ -79,7 +104,7 @@ void setup_input_devices (GromitData *data)
 	  if(kbd_dev_id != -1)
 	    {
 	      if(data->debug)
-		g_printerr("DEBUG: Grabbing hotkey from keyboard '%d' .\n", kbd_dev_id);
+		g_printerr("DEBUG: Grabbing hotkeys from keyboard '%d' .\n", kbd_dev_id);
 
 	      XIEventMask mask;
 	      unsigned char bits[4] = {0,0,0,0};
@@ -97,6 +122,17 @@ void setup_input_devices (GromitData *data)
 	      XIGrabKeycode( GDK_DISPLAY_XDISPLAY(data->display),
 			     kbd_dev_id,
 			     data->hot_keycode,
+			     GDK_WINDOW_XID(data->root),
+			     GrabModeAsync,
+			     GrabModeAsync,
+			     True,
+			     &mask,
+			     nmods,
+			     modifiers);
+
+	      XIGrabKeycode( GDK_DISPLAY_XDISPLAY(data->display),
+			     kbd_dev_id,
+			     data->undo_keycode,
 			     GDK_WINDOW_XID(data->root),
 			     GrabModeAsync,
 			     GrabModeAsync,
@@ -291,4 +327,81 @@ void toggle_grab (GromitData *data,
     }
   else
     g_printerr("ERROR: No such device '%s' in internal table.\n", gdk_device_get_name(dev));
+}
+
+
+
+/* Key snooper */
+gint snoop_key_press(GtkWidget   *grab_widget,
+		     GdkEventKey *event,
+		     gpointer     func_data)
+{
+  GromitData *data = (GromitData *) func_data;
+  GdkDevice *dev = gdk_event_get_device((GdkEvent*)event);
+
+  if (event->type == GDK_KEY_PRESS &&
+      event->hardware_keycode == data->hot_keycode)
+    {
+      if(data->debug)
+	g_printerr("DEBUG: Received hotkey press from device '%s'\n", gdk_device_get_name(dev));
+
+      if (event->state & GDK_SHIFT_MASK)
+        clear_screen (data);
+      else if (event->state & GDK_CONTROL_MASK)
+        toggle_visibility (data);
+      else if (event->state & GDK_MOD1_MASK)
+        gtk_main_quit ();
+      else
+	{
+	  /* GAAAH */
+	  gint kbd_dev_id = -1;
+	  g_object_get(dev, "device-id", &kbd_dev_id, NULL);
+
+	  XIDeviceInfo* devinfo;
+	  int devicecount = 0;
+	  gint ptr_dev_id = -1;
+	  
+	  devinfo = XIQueryDevice(GDK_DISPLAY_XDISPLAY(data->display),
+				  kbd_dev_id,
+				  &devicecount);
+	  if(devicecount)
+	    ptr_dev_id = devinfo->attachment;
+	  XIFreeDeviceInfo(devinfo);
+	  
+ 
+	  GdkDeviceManager *device_manager = gdk_display_get_device_manager(data->display);
+	  GList *devices, *d;
+	  gint some_dev_id;
+	  GdkDevice *some_device = NULL;
+	  devices = gdk_device_manager_list_devices(device_manager, GDK_DEVICE_TYPE_MASTER);
+	  for(d = devices; d; d = d->next)
+	    {
+	      some_device = (GdkDevice *) d->data;
+	      g_object_get(some_device, "device-id", &some_dev_id, NULL);
+	      if(some_dev_id == ptr_dev_id)
+		break;
+	    }
+
+
+	  toggle_grab(data, some_device);
+	}
+
+      return TRUE;
+    }
+  if (event->type == GDK_KEY_PRESS &&
+      event->hardware_keycode == data->undo_keycode)
+    {
+      if(data->debug)
+	g_printerr("DEBUG: Received undokey press from device '%s'\n", gdk_device_get_name(dev));
+
+      if (data->hidden)
+        return FALSE;
+      if (event->state & GDK_SHIFT_MASK)
+        redo_drawing (data);
+      else
+        undo_drawing (data);
+
+      return TRUE;
+    }
+  return FALSE;
 }

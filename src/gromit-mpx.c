@@ -24,7 +24,6 @@
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
-#include <X11/extensions/XInput2.h>
 
 #include "callbacks.h"
 #include "config.h"
@@ -434,6 +433,98 @@ void select_tool (GromitData *data,
 }
 
 
+
+void snap_undo_state (GromitData *data)
+{
+  if(data->debug)
+    g_printerr ("DEBUG: Snapping undo buffer %d.\n", data->undo_head);
+
+  copy_surface(data->undobuffer[data->undo_head], data->backbuffer);
+
+  // Increment head position
+  data->undo_head++;
+  if(data->undo_head >= GROMIT_MAX_UNDO)
+    data->undo_head -= GROMIT_MAX_UNDO;
+  data->undo_depth++;
+  // See if we ran out of undo levels with oldest undo overwritten
+  if(data->undo_depth > GROMIT_MAX_UNDO)
+    data->undo_depth = GROMIT_MAX_UNDO;
+  // Invalidate any redo from this position
+  data->redo_depth = 0;
+}
+
+
+
+void copy_surface (cairo_surface_t *dst, cairo_surface_t *src)
+{
+  cairo_t *cr = cairo_create(dst);
+  cairo_set_source_surface(cr, src, 0, 0);
+  cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
+  cairo_paint (cr);
+  cairo_destroy(cr);
+}
+
+
+
+void swap_surfaces (cairo_surface_t *a, cairo_surface_t *b)
+{
+  int width = cairo_image_surface_get_width(a);
+  int height = cairo_image_surface_get_height(a);
+  cairo_surface_t *temp = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+  copy_surface(temp, a);
+  copy_surface(a, b);
+  copy_surface(b, temp);
+  cairo_surface_destroy(temp);
+}
+
+
+
+void undo_drawing (GromitData *data)
+{
+  /* Swap undobuffer[head-1]->backbuffer */
+  if(data->undo_depth <= 0)
+    return;
+  data->undo_depth--;
+  data->redo_depth++;
+  if(data->redo_depth > GROMIT_MAX_UNDO)
+    data->redo_depth -= GROMIT_MAX_UNDO;
+  data->undo_head--;
+  if(data->undo_head < 0)
+    data->undo_head += GROMIT_MAX_UNDO;
+
+  swap_surfaces(data->backbuffer, data->undobuffer[data->undo_head]);
+
+  GdkRectangle rect = {0, 0, data->width, data->height};
+  gdk_window_invalidate_rect(gtk_widget_get_window(data->win), &rect, 0); 
+
+  if(data->debug)
+    g_printerr ("DEBUG: Undo drawing %d.\n", data->undo_head);
+}
+
+
+
+void redo_drawing (GromitData *data)
+{
+  if(data->redo_depth <= 0)
+    return;
+
+  swap_surfaces(data->backbuffer, data->undobuffer[data->undo_head]);
+
+  data->redo_depth--;
+  data->undo_depth++;
+  data->undo_head++;
+  if(data->undo_head >= GROMIT_MAX_UNDO)
+    data->undo_head -= GROMIT_MAX_UNDO;
+  
+  GdkRectangle rect = {0, 0, data->width, data->height};
+  gdk_window_invalidate_rect(gtk_widget_get_window(data->win), &rect, 0); 
+
+  if(data->debug)
+    g_printerr("DEBUG: Redo drawing.\n");
+}
+
+
+
 void draw_line (GromitData *data,
 		GdkDevice *dev,
 		gint x1, gint y1,
@@ -544,76 +635,14 @@ void draw_arrow (GromitData *data,
  */
 
 
-/* Keyboard control */
-
-gint key_press_event (GtkWidget   *grab_widget,
-		      GdkEventKey *event,
-		      gpointer     func_data)
-{
-  GromitData *data = (GromitData *) func_data;
-  GdkDevice *dev = gdk_event_get_device((GdkEvent*)event);
-
-  if (event->type == GDK_KEY_PRESS &&
-      event->hardware_keycode == data->hot_keycode)
-    {
-      if(data->debug)
-	g_printerr("DEBUG: Received hotkey press from device '%s'\n", gdk_device_get_name(dev));
-
-      if (event->state & GDK_SHIFT_MASK)
-        clear_screen (data);
-      else if (event->state & GDK_CONTROL_MASK)
-        toggle_visibility (data);
-      else if (event->state & GDK_MOD1_MASK)
-        gtk_main_quit ();
-      else
-	{
-	  /* GAAAH */
-	  gint kbd_dev_id = -1;
-	  g_object_get(dev, "device-id", &kbd_dev_id, NULL);
-
-	  XIDeviceInfo* devinfo;
-	  int devicecount = 0;
-	  gint ptr_dev_id = -1;
-	  
-	  devinfo = XIQueryDevice(GDK_DISPLAY_XDISPLAY(data->display),
-				  kbd_dev_id,
-				  &devicecount);
-	  if(devicecount)
-	    ptr_dev_id = devinfo->attachment;
-	  XIFreeDeviceInfo(devinfo);
-	  
- 
-	  GdkDeviceManager *device_manager = gdk_display_get_device_manager(data->display);
-	  GList *devices, *d;
-	  gint some_dev_id;
-	  GdkDevice *some_device = NULL;
-	  devices = gdk_device_manager_list_devices(device_manager, GDK_DEVICE_TYPE_MASTER);
-	  for(d = devices; d; d = d->next)
-	    {
-	      some_device = (GdkDevice *) d->data;
-	      g_object_get(some_device, "device-id", &some_dev_id, NULL);
-	      if(some_dev_id == ptr_dev_id)
-		break;
-	    }
-
-
-	  toggle_grab(data, some_device);
-	}
-
-      return TRUE;
-    }
-  return FALSE;
-}
-
-
 void main_do_event (GdkEventAny *event,
 		    GromitData  *data)
 {
-
+  guint keycode = ((GdkEventKey *) event)->hardware_keycode;
   if ((event->type == GDK_KEY_PRESS ||
        event->type == GDK_KEY_RELEASE) &&
       event->window == data->root &&
-      ((GdkEventKey *) event)->hardware_keycode == data->hot_keycode)
+      (keycode == data->hot_keycode || keycode == data->undo_keycode))
     {
       /* redirect the event to our main window, so that GTK+ doesn't
        * throw it away (there is no GtkWidget for the root window...)
@@ -666,7 +695,21 @@ void setup_main_app (GromitData *data, gboolean activate)
   */
   /* SHAPE SURFACE*/
   cairo_surface_destroy(data->backbuffer);
-  data->backbuffer = cairo_image_surface_create(CAIRO_FORMAT_ARGB32 ,data->width, data->height);
+  data->backbuffer = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, data->width, data->height);
+  
+  /*
+    UNDO STATE
+  */
+  data->undo_head = 0;
+  data->undo_depth = 0;
+  data->redo_depth = 0;
+  int i;
+  for (i = 0; i < GROMIT_MAX_UNDO; i++)
+    {
+      cairo_surface_destroy(data->undobuffer[i]);
+      data->undobuffer[i] = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, data->width, data->height);
+    }
+  
 
 
   /* EVENTS */
@@ -725,6 +768,8 @@ void setup_main_app (GromitData *data, gboolean activate)
   gtk_selection_add_target (data->win, GA_CONTROL, GA_VISIBILITY, 5);
   gtk_selection_add_target (data->win, GA_CONTROL, GA_CLEAR, 6);
   gtk_selection_add_target (data->win, GA_CONTROL, GA_RELOAD, 7);
+  gtk_selection_add_target (data->win, GA_CONTROL, GA_UNDO, 8);
+  gtk_selection_add_target (data->win, GA_CONTROL, GA_REDO, 9);
 
 
  
@@ -766,6 +811,34 @@ void setup_main_app (GromitData *data, gboolean activate)
         }
     }
 
+  /*
+     FIND UNDOKEY KEYCODE 
+  */
+  if (data->undo_keyval)
+    {
+      GdkKeymap    *keymap;
+      GdkKeymapKey *keys;
+      gint          n_keys;
+      guint         keyval;
+
+      if (strlen (data->undo_keyval) > 0 &&
+          strcasecmp (data->undo_keyval, "none") != 0)
+        {
+          keymap = gdk_keymap_get_for_display (data->display);
+          keyval = gdk_keyval_from_name (data->undo_keyval);
+
+          if (!keyval || !gdk_keymap_get_entries_for_keyval (keymap, keyval,
+                                                             &keys, &n_keys))
+            {
+              g_printerr ("cannot find the key \"%s\"\n", data->undo_keyval);
+              exit (1);
+            }
+
+          data->undo_keycode = keys[0].keycode;
+          g_free (keys);
+        }
+    }
+
 
   /* 
      INPUT DEVICES
@@ -792,7 +865,7 @@ void setup_main_app (GromitData *data, gboolean activate)
   
 
   gdk_event_handler_set ((GdkEventFunc) main_do_event, data, NULL);
-  gtk_key_snooper_install (key_press_event, data);
+  gtk_key_snooper_install (snoop_key_press, data);
 
   if (activate)
     acquire_grab (data, NULL); /* grab all */
@@ -824,6 +897,9 @@ int app_parse_args (int argc, char **argv, GromitData *data)
 
    data->hot_keyval = DEFAULT_HOTKEY;
    data->hot_keycode = 0;
+
+   data->undo_keyval = DEFAULT_UNDOKEY;
+   data->undo_keycode = 0;
 
    for (i=1; i < argc ; i++)
      {
@@ -865,6 +941,36 @@ int app_parse_args (int argc, char **argv, GromitData *data)
            else
              {
                g_printerr ("-K requires an keycode > 0 as argument\n");
+               wrong_arg = TRUE;
+             }
+         }
+       else if (strcmp (arg, "-u") == 0 ||
+                strcmp (arg, "--undo-key") == 0)
+         {
+           if (i+1 < argc)
+             {
+               data->undo_keyval = argv[i+1];
+               data->undo_keycode = 0;
+               i++;
+             }
+           else
+             {
+               g_printerr ("-u requires an Key-Name as argument\n");
+               wrong_arg = TRUE;
+             }
+         }
+       else if (strcmp (arg, "-U") == 0 ||
+                strcmp (arg, "--undo-keycode") == 0)
+         {
+           if (i+1 < argc && atoi (argv[i+1]) > 0)
+             {
+               data->undo_keyval = NULL;
+               data->undo_keycode = atoi (argv[i+1]);
+               i++;
+             }
+           else
+             {
+               g_printerr ("-U requires an keycode > 0 as argument\n");
                wrong_arg = TRUE;
              }
          }
@@ -937,6 +1043,16 @@ int main_client (int argc, char **argv, GromitData *data)
          {
            action = GA_RELOAD;
          }
+       else if (strcmp (arg, "-z") == 0 ||
+                strcmp (arg, "--undo") == 0)
+         {
+           action = GA_UNDO;
+         }
+       else if (strcmp (arg, "-y") == 0 ||
+                strcmp (arg, "--redo") == 0)
+         {
+           action = GA_REDO;
+         }
        else
          {
            g_printerr ("Unknown Option to control a running Gromit-MPX process: \"%s\"\n", arg);
@@ -977,6 +1093,7 @@ int main (int argc, char **argv)
   data->root = gdk_screen_get_root_window (data->screen);
   data->width = gdk_screen_get_width (data->screen);
   data->height = gdk_screen_get_height (data->screen);
+
 
   /*
     init our window
