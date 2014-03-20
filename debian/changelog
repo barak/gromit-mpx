@@ -1,3 +1,9 @@
+gromit-mpx (1.1+git.1.fb3c7f8-1) unstable; urgency=medium
+
+  * Track upstream development
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Thu, 20 Mar 2014 13:51:07 +0000
+
 gromit-mpx (1.1-2) unstable; urgency=low
 
   * Document changing default hotkey, in Debian, to Pause (closes: #730182)
