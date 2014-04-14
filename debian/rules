@@ -3,7 +3,9 @@
 %:
 	dh $@ --with autoreconf --parallel
 
-export CPPFLAGS=-DDEFAULT_HOTKEY='"Pause"'
+export CPPFLAGS =					\
+	-DDEFAULT_HOTKEY='"Pause"'			\
+	$(shell dpkg-buildflags --get CPPFLAGS)
 
 override_dh_auto_install:
 	dh_auto_install
