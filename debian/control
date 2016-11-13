@@ -11,7 +11,7 @@ Vcs-Browser: http://anonscm.debian.org/gitweb/?p=collab-maint/gromit-mpx.git
 Package: gromit-mpx
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: GTK based tool to make annotations on screen with multiple pointers
+Description: GTK+ based tool to make annotations on screen with multiple pointers
  Gromit-MPX enables you to make annotations on your screen using 
  multiple pointing devices at once.
  .
