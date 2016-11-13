@@ -27,6 +27,7 @@
 #include "input.h"
 #include "callbacks.h"
 #include "config.h"
+#include "build-config.h"
 
 
 gboolean on_expose (GtkWidget *widget,
@@ -126,9 +127,9 @@ void on_monitors_changed ( GdkScreen *screen,
 
 
   data->default_pen = paint_context_new (data, GROMIT_PEN,
-					 data->red, 7, 0);
+					 data->red, 7, 0, 1);
   data->default_eraser = paint_context_new (data, GROMIT_ERASER,
-					    data->red, 75, 0);
+					    data->red, 75, 0, 1);
 
   if(!data->composited) // set shape
     {
@@ -160,7 +161,7 @@ void on_composited_changed ( GdkScreen *screen,
       // undo shape
       gtk_widget_shape_combine_region(data->win, NULL);
       // re-apply transparency
-      gtk_window_set_opacity(GTK_WINDOW(data->win), 0.75);
+      gtk_widget_set_opacity(data->win, 0.75);
     }
 
   // set anti-aliasing
@@ -269,8 +270,10 @@ gboolean on_buttonpress (GtkWidget *win,
   else
     {
       gdk_event_get_axis ((GdkEvent *) ev, GDK_AXIS_PRESSURE, &pressure);
-      data->maxwidth = (CLAMP (pressure * pressure + line_thickener,0,1) *
-                        (double) slavedata->cur_context->width);
+      data->maxwidth = (CLAMP (pressure + line_thickener, 0, 1) *
+                        (double) (slavedata->cur_context->width -
+				  slavedata->cur_context->minwidth) +
+			slavedata->cur_context->minwidth);
     }
   if (ev->button <= 5)
     draw_line (data, slave, ev->x, ev->y, ev->x, ev->y);
@@ -304,6 +307,9 @@ gboolean on_motion (GtkWidget *win,
   GromitDeviceData *slavedata =
     g_hash_table_lookup(data->devdatatable, slave);
 
+  if(data->debug)
+      g_printerr("DEBUG: Device '%s': motion to (x,y)=(%.2f : %.2f)\n", gdk_device_get_name(slave), ev->x, ev->y);
+
   if (ev->state != masterdata->state ||
       ev->state != slavedata->state ||
       masterdata->lastslave != slave)
@@ -333,8 +339,10 @@ gboolean on_motion (GtkWidget *win,
               if (gdk_device_get_source(slave) == GDK_SOURCE_MOUSE)
                 data->maxwidth = slavedata->cur_context->width;
               else
-                data->maxwidth = (CLAMP (pressure * pressure + line_thickener, 0, 1) *
-                                  (double) slavedata->cur_context->width);
+		data->maxwidth = (CLAMP (pressure + line_thickener, 0, 1) *
+				  (double) (slavedata->cur_context->width -
+					    slavedata->cur_context->minwidth) +
+				  slavedata->cur_context->minwidth);
 
               gdk_device_get_axis(slave, coords[i]->axes,
                                   GDK_AXIS_X, &x);
@@ -361,8 +369,10 @@ gboolean on_motion (GtkWidget *win,
       if (gdk_device_get_source(slave) == GDK_SOURCE_MOUSE)
 	data->maxwidth = slavedata->cur_context->width;
       else
-        data->maxwidth = (CLAMP (pressure * pressure + line_thickener,0,1) *
-                          (double)slavedata->cur_context->width);
+	data->maxwidth = (CLAMP (pressure + line_thickener, 0, 1) *
+			  (double) (slavedata->cur_context->width -
+				    slavedata->cur_context->minwidth) +
+			  slavedata->cur_context->minwidth);
 
       if(slavedata->motion_time > 0)
 	{
@@ -550,32 +560,48 @@ void on_device_added (GdkDeviceManager *device_manager,
 
 
 
+gboolean on_toggle_paint(GtkWidget *widget,
+			 GdkEventButton  *ev,
+			 gpointer   user_data)
+{
+    GromitData *data = (GromitData *) user_data;
 
-static void on_clear (GtkMenuItem *menuitem,
-		      gpointer     user_data)
+    GdkDevice *master = ev->device;
+    GdkDevice *slave = gdk_event_get_source_device ((GdkEvent *) ev);
+
+    if(data->debug)
+	g_printerr("DEBUG: Device '%s': Button %i on_toggle_paint at (x,y)=(%.2f : %.2f)\n",
+		   gdk_device_get_name(slave), ev->button, ev->x, ev->y);
+
+    toggle_grab(data, master);
+
+    return TRUE;
+}
+
+void on_clear (GtkMenuItem *menuitem,
+	       gpointer     user_data)
 {
   GromitData *data = (GromitData *) user_data;
   clear_screen(data);
 }
 
 
-static void on_toggle_vis(GtkMenuItem *menuitem,
-			  gpointer     user_data)
+void on_toggle_vis(GtkMenuItem *menuitem,
+		   gpointer     user_data)
 {
   GromitData *data = (GromitData *) user_data;
   toggle_visibility(data);
 }
 
 
-
-static void on_thicker_lines(GtkMenuItem *menuitem,
-			     gpointer     user_data)
+void on_thicker_lines(GtkMenuItem *menuitem,
+		      gpointer     user_data)
 {
   line_thickener += 0.1;
 }
 
-static void on_thinner_lines(GtkMenuItem *menuitem,
-			     gpointer     user_data)
+void on_thinner_lines(GtkMenuItem *menuitem,
+		      gpointer     user_data)
 {
   line_thickener -= 0.1;
   if (line_thickener < -1)
@@ -583,130 +609,88 @@ static void on_thinner_lines(GtkMenuItem *menuitem,
 }
 
 
+void on_opacity_bigger(GtkMenuItem *menuitem,
+		       gpointer     user_data)
+{
+  GromitData *data = (GromitData *) user_data;
+  data->opacity += 0.1;
+  if(data->opacity>1.0)
+    data->opacity = 1.0;
+  gtk_widget_set_opacity(data->win, data->opacity);
+}
 
-static void on_undo(GtkMenuItem *menuitem,
-                    gpointer     user_data)
+void on_opacity_lesser(GtkMenuItem *menuitem,
+		       gpointer     user_data)
+{
+  GromitData *data = (GromitData *) user_data;
+  data->opacity -= 0.1;
+  if(data->opacity<0.0)
+    data->opacity = 0.0;
+  gtk_widget_set_opacity(data->win, data->opacity);
+}
+
+
+void on_undo(GtkMenuItem *menuitem,
+	     gpointer     user_data)
 {
   GromitData *data = (GromitData *) user_data;
   undo_drawing (data);
 }
 
-static void on_redo(GtkMenuItem *menuitem,
-                    gpointer     user_data)
+void on_redo(GtkMenuItem *menuitem,
+	     gpointer     user_data)
 {
   GromitData *data = (GromitData *) user_data;
   redo_drawing (data);
 }
 
 
-void on_trayicon_activate (GtkStatusIcon *status_icon,
-			   gpointer       user_data)
+void on_help(GtkMenuItem *menuitem,
+	     gpointer     user_data)
 {
-  GromitData *data = (GromitData *) user_data;
-  if(data->debug)
-    g_printerr("DEBUG: trayicon activated\n");
+    GromitData *data = (GromitData *) user_data;
 
-  /* create the menu */
-  GtkWidget *menu = gtk_menu_new ();
+    gchar helpString[4096];
+    snprintf(helpString, 4096,  "The available commands are:\n\n<tt><b>\
+    toggle painting:         %s\n\
+    clear screen:            SHIFT-%s\n\
+    toggle visibility:       CTRL-%s\n\
+    quit:                    ALT-%s\n\
+    undo last stroke:        %s\n\
+    redo last undone stroke: SHIFT-%s</b></tt>",
+	     data->hot_keyval, data->hot_keyval, data->hot_keyval, data->hot_keyval,
+	     data->undo_keyval, data->undo_keyval);
+
+    GtkWidget *dialog = gtk_message_dialog_new_with_markup (NULL,
+							 GTK_DIALOG_DESTROY_WITH_PARENT,
+							 GTK_MESSAGE_INFO,
+							 GTK_BUTTONS_CLOSE,
+							 "%s", helpString);
   
-  /* Create the menu items */
-  GtkWidget* toggle_paint_item = gtk_image_menu_item_new_with_label ("Toggle Painting");
-  GtkWidget* clear_item = gtk_image_menu_item_new_with_label ("Clear Screen");
-  GtkWidget* toggle_vis_item = gtk_image_menu_item_new_with_label ("Toggle Visibility");
-  GtkWidget* thicker_lines_item = gtk_image_menu_item_new_with_label ("Thicker Lines");
-  GtkWidget* thinner_lines_item = gtk_image_menu_item_new_with_label ("Thinner Lines");
-  GtkWidget* undo_item = gtk_image_menu_item_new_with_label ("Undo");
-  GtkWidget* redo_item = gtk_image_menu_item_new_with_label ("Redo");
+    g_signal_connect_swapped (dialog, "response",
+			      G_CALLBACK (gtk_widget_destroy),
+			      dialog);
 
-
-  /* Add them to the menu */
-  gtk_menu_shell_append (GTK_MENU_SHELL (menu), toggle_paint_item);
-  gtk_menu_shell_append (GTK_MENU_SHELL (menu), clear_item);
-  gtk_menu_shell_append (GTK_MENU_SHELL (menu), toggle_vis_item);
-  gtk_menu_shell_append (GTK_MENU_SHELL (menu), thicker_lines_item);
-  gtk_menu_shell_append (GTK_MENU_SHELL (menu), thinner_lines_item);
-  gtk_menu_shell_append (GTK_MENU_SHELL (menu), undo_item);
-  gtk_menu_shell_append (GTK_MENU_SHELL (menu), redo_item);
-
-
-  /* Attach the callback functions to the respective activate signal */
-  // TODO add per-device submenu for toggle_paint_item 
-  g_signal_connect(G_OBJECT (clear_item), "activate",
-		   G_CALLBACK (on_clear),
-		   data);
-  g_signal_connect(G_OBJECT (toggle_vis_item), "activate",
-		   G_CALLBACK (on_toggle_vis),
-		   data);
-
-  g_signal_connect(G_OBJECT (thicker_lines_item), "activate",
-		   G_CALLBACK (on_thicker_lines),
-		   data);
-  g_signal_connect(G_OBJECT (thinner_lines_item), "activate",
-		   G_CALLBACK (on_thinner_lines),
-		   data);
-
-  g_signal_connect(G_OBJECT (undo_item), "activate",
-		   G_CALLBACK (on_undo),
-		   data);
-  g_signal_connect(G_OBJECT (redo_item), "activate",
-		   G_CALLBACK (on_redo),
-		   data);
- 
-
-  /* We do need to show menu items */
-  gtk_widget_show (toggle_paint_item);
-  gtk_widget_show (clear_item);
-  gtk_widget_show (toggle_vis_item);
-  gtk_widget_show (thicker_lines_item);
-  gtk_widget_show (thinner_lines_item);
-  gtk_widget_show (undo_item);
-  gtk_widget_show (redo_item);
- 
-
-  /* show menu */
-  gtk_menu_popup (GTK_MENU (menu), NULL, NULL, NULL, NULL,
-                  0, gtk_get_current_event_time());
+    gtk_widget_show_all(dialog);
 }
 
 
 
-
-void on_trayicon_menu (GtkStatusIcon *status_icon,
-		       guint          button,
-		       guint          activate_time,
-		       gpointer       user_data)
+void on_about(GtkMenuItem *menuitem,
+	      gpointer     user_data)
 {
-  GromitData *data = (GromitData *) user_data;
-  if(data->debug)
-    g_printerr("DEBUG: trayicon menu popup\n");
-
-  /* create the menu */
-  GtkWidget *menu = gtk_menu_new ();
-  /* Create the menu items */
-  //TODO option menu
-  GtkWidget* sep_item = gtk_separator_menu_item_new();
-  GtkWidget* quit_item = gtk_image_menu_item_new_from_stock(GTK_STOCK_QUIT, NULL);
-
-
-  /* Add them to the menu */
-  gtk_menu_shell_append (GTK_MENU_SHELL (menu), sep_item);
-  gtk_menu_shell_append (GTK_MENU_SHELL (menu), quit_item);
-
-  /* Attach the callback functions to the respective activate signal */
-  g_signal_connect(G_OBJECT (quit_item), "activate",
-		   G_CALLBACK (gtk_main_quit),
-		   NULL);
-
-
-  /* We do need to show menu items */
-  gtk_widget_show (sep_item);
-  gtk_widget_show (quit_item);
-
-
-  /* show menu */
-  gtk_menu_popup (GTK_MENU (menu), NULL, NULL, NULL, NULL,
-                  0, gtk_get_current_event_time());
+    const gchar *authors [] = { "Christian Beier <dontmind@freeshell.org>", "Simon Budig <Simon.Budig@unix-ag.org>", NULL };
+    gtk_show_about_dialog (NULL,
+			   "program-name", "Gromit-MPX",
+			   "logo-icon-name", "gromit-mpx",
+			   "title", "About Gromit-MPX",
+			   "comments", "Gromit-MPX (GRaphics Over MIscellaneous Things) is a small tool to make annotations on the screen. Gromit-MPX is a multi-pointer port of the original Gromit annotation tool by Simon Budig.",
+			   "version", VERSION,
+			   "website", "https://github.com/bk138/gromit-mpx",
+			   "authors", authors,
+			   "copyright", "Copyright 2000 Simon Budig, 2009-2016 Christian Beier",
+			   "license-type", GTK_LICENSE_GPL_2_0,
+			   NULL);
 }
-
 
 

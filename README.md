@@ -53,6 +53,11 @@ gromit-mpx --key <keysym> --undo-key <keysym>
 Specifying an empty string or `none` for the keysym will prevent gromit
 from grabbing a key.
 
+You can specify the opacity simply via:
+```
+gromit-mpx -o <opacity>
+```
+
 Alternatively you can invoke Gromit-MPX with various arguments to
 control an already running Gromit-MPX .
 
@@ -94,6 +99,7 @@ Simply type `./configure && make && make install`.
 If you checked out from git instead of using the tarball, an
 `autoreconf --install` is needed to setup the build system.
 
+You might also need to install `automake` and `gtk3-devel`.
 
 ### Configuration:
 
