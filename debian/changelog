@@ -1,3 +1,14 @@
+gromit-mpx (1.2-1) unstable; urgency=medium
+
+  * New upstream version
+  * Bump policy version
+  * dh10
+  * cmake
+  * build dependency on libappindicator3-dev
+  * update debian/watch uscan script
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Sat, 19 Nov 2016 14:49:25 +0000
+
 gromit-mpx (1.1+git.1.fb3c7f8-1) unstable; urgency=medium
 
   * Track upstream development
