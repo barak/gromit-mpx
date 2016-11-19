@@ -11,7 +11,7 @@ the change in gromit-mpx(1).
  1 file changed, 8 insertions(+), 7 deletions(-)
 
 diff --git a/gromit-mpx.1 b/gromit-mpx.1
-index cc007f6..30a9a41 100644
+index 49dd89a..e70c553 100644
 --- a/gromit-mpx.1
 +++ b/gromit-mpx.1
 @@ -33,20 +33,21 @@ Gromit-MPX is activated by either a hotkey or a repeated invocation of Gromit-MP
