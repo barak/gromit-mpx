@@ -1,3 +1,11 @@
+gromit-mpx (1.2-2) unstable; urgency=medium
+
+  * Track upstream development
+  * Remove debian default hotkey patch (PAUSE) reverting to upstream (F9)
+  * Remove now-unnecessary dh build system option
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Sun, 04 Dec 2016 14:36:14 +0000
+
 gromit-mpx (1.2-1) unstable; urgency=medium
 
   * New upstream version
