@@ -5,10 +5,6 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 %:
 	dh $@
 
-export CPPFLAGS =					\
-	-DDEFAULT_HOTKEY='"Pause"'			\
-	$(shell dpkg-buildflags --get CPPFLAGS)
-
 override_dh_auto_install:
 	dh_auto_install
 	@echo "Installed later under different name by dh_installchangelogs:"
