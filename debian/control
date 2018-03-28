@@ -8,8 +8,8 @@ Build-Depends: debhelper (>= 10),
 	libappindicator3-dev
 Standards-Version: 3.9.8
 Homepage: https://github.com/bk138/gromit-mpx
-Vcs-Git: git://anonscm.debian.org/collab-maint/gromit-mpx.git
-Vcs-Browser: http://anonscm.debian.org/gitweb/?p=collab-maint/gromit-mpx.git
+Vcs-Git: https://salsa.debian.org/debian/gromit-mpx.git
+Vcs-Browser: https://salsa.debian.org/debian/gromit-mpx
 
 Package: gromit-mpx
 Architecture: any
