@@ -15,7 +15,7 @@ Package: gromit-mpx
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: GTK+ based tool to make annotations on screen with multiple pointers
- Gromit-MPX enables you to make annotations on your screen using 
+ Gromit-MPX enables you to make annotations on your screen using
  multiple pointing devices at once.
  .
  This is especially useful when making presentations, to highlight
