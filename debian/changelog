@@ -1,6 +1,7 @@
 gromit-mpx (1.2-3) UNRELEASED; urgency=medium
 
   * d/copyright: Use https protocol in Format field
+  * d/changelog: Remove trailing whitespaces
 
  -- Ondřej Nový <onovy@debian.org>  Mon, 01 Oct 2018 10:10:49 +0200
 
@@ -38,6 +39,6 @@ gromit-mpx (1.1-2) unstable; urgency=low
 
 gromit-mpx (1.1-1) unstable; urgency=low
 
-  * Initial release 
+  * Initial release
 
  -- Barak A. Pearlmutter <bap@debian.org>  Tue, 20 Aug 2013 00:53:30 +0200
