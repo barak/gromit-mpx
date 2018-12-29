@@ -23,6 +23,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include "gromit-mpx.h"
 #include "input.h"
 #include "callbacks.h"
@@ -89,12 +90,12 @@ void on_monitors_changed ( GdkScreen *screen,
 {
   GromitData *data = (GromitData *) user_data;
 
-  if(data->debug)
-    g_printerr("DEBUG: screen size changed!\n");
-
   // get new sizes
   data->width = gdk_screen_get_width (data->screen);
   data->height = gdk_screen_get_height (data->screen);
+
+  if(data->debug)
+    g_printerr("DEBUG: screen size changed to %d x %d!\n", data->width, data->height);
 
   // change size
   gtk_widget_set_size_request(GTK_WIDGET(data->win), data->width, data->height);
@@ -235,45 +236,40 @@ gboolean on_buttonpress (GtkWidget *win,
   gdouble pressure = 1;
 
   /* get the data for this device */
-  GdkDevice *master = ev->device;
-  GromitDeviceData *masterdata =
-    g_hash_table_lookup(data->devdatatable, master);
-  GdkDevice *slave =
-    gdk_event_get_source_device ((GdkEvent *) ev);
-  GromitDeviceData *slavedata =
-    g_hash_table_lookup(data->devdatatable, slave);
+  GromitDeviceData *devdata = g_hash_table_lookup(data->devdatatable, ev->device);
 
   if(data->debug)
     g_printerr("DEBUG: Device '%s': Button %i Down at (x,y)=(%.2f : %.2f)\n", 
-	       gdk_device_get_name(slave), ev->button, ev->x, ev->y);
+	       gdk_device_get_name(ev->device), ev->button, ev->x, ev->y);
 
-  if (!masterdata->is_grabbed)
+  if (!devdata->is_grabbed)
     return FALSE;
 
+ 
   /* See GdkModifierType. Am I fixing a Gtk misbehaviour???  */
   ev->state |= 1 << (ev->button + 7);
 
-  if (ev->state != masterdata->state ||
-      ev->state != slavedata->state ||
-      masterdata->lastslave != slave)
-    select_tool (data, master, slave, ev->state);
 
-  slavedata->lastx = ev->x;
-  slavedata->lasty = ev->y;
-  slavedata->motion_time = ev->time;
+  if (ev->state != devdata->state ||
+      devdata->lastslave != gdk_event_get_source_device ((GdkEvent *) ev))
+    select_tool (data, ev->device, gdk_event_get_source_device ((GdkEvent *) ev), ev->state);
+
+  devdata->lastx = ev->x;
+  devdata->lasty = ev->y;
+  devdata->motion_time = ev->time;
 
   snap_undo_state (data);
 
   gdk_event_get_axis ((GdkEvent *) ev, GDK_AXIS_PRESSURE, &pressure);
   data->maxwidth = (CLAMP (pressure + line_thickener, 0, 1) *
-		    (double) (slavedata->cur_context->width -
-			      slavedata->cur_context->minwidth) +
-		    slavedata->cur_context->minwidth);
+		    (double) (devdata->cur_context->width -
+			      devdata->cur_context->minwidth) +
+		    devdata->cur_context->minwidth);
 
   if (ev->button <= 5)
-    draw_line (data, slave, ev->x, ev->y, ev->x, ev->y);
+    draw_line (data, ev->device, ev->x, ev->y, ev->x, ev->y);
 
-  coord_list_prepend (data, slave, ev->x, ev->y, data->maxwidth);
+  coord_list_prepend (data, ev->device, ev->x, ev->y, data->maxwidth);
 
   return TRUE;
 }
@@ -288,38 +284,22 @@ gboolean on_motion (GtkWidget *win,
   gint nevents;
   int i;
   gdouble pressure = 1;
-
   /* get the data for this device */
-  GdkDevice *master = ev->device;
-  GromitDeviceData *masterdata =
-    g_hash_table_lookup(data->devdatatable, master);
+  GromitDeviceData *devdata = g_hash_table_lookup(data->devdatatable, ev->device);
 
-  if (!masterdata->is_grabbed)
+  if (!devdata->is_grabbed)
     return FALSE;
 
-  GdkDevice *slave =
-    gdk_event_get_source_device ((GdkEvent *) ev);
-  GromitDeviceData *slavedata =
-    g_hash_table_lookup(data->devdatatable, slave);
-
   if(data->debug)
-      g_printerr("DEBUG: Device '%s': motion to (x,y)=(%.2f : %.2f)\n", gdk_device_get_name(slave), ev->x, ev->y);
+      g_printerr("DEBUG: Device '%s': motion to (x,y)=(%.2f : %.2f)\n", gdk_device_get_name(ev->device), ev->x, ev->y);
 
-  if (ev->state != masterdata->state ||
-      ev->state != slavedata->state ||
-      masterdata->lastslave != slave)
-    select_tool (data, master, slave, ev->state);
+  if (ev->state != devdata->state ||
+      devdata->lastslave != gdk_event_get_source_device ((GdkEvent *) ev))
+    select_tool (data, ev->device, gdk_event_get_source_device ((GdkEvent *) ev), ev->state);
 
-  if(!(ev->state & (GDK_BUTTON1_MASK|
-                    GDK_BUTTON2_MASK|
-                    GDK_BUTTON3_MASK|
-                    GDK_BUTTON4_MASK|
-                    GDK_BUTTON5_MASK)))
-    return TRUE;
-
-  gdk_device_get_history (slave, ev->window,
-                          slavedata->motion_time, ev->time,
-                          &coords, &nevents);
+  gdk_device_get_history (ev->device, ev->window,
+			  devdata->motion_time, ev->time,
+			  &coords, &nevents);
 
   if(!data->xinerama && nevents > 0)
     {
@@ -327,29 +307,29 @@ gboolean on_motion (GtkWidget *win,
         {
           gdouble x, y;
 
-          gdk_device_get_axis (slave, coords[i]->axes,
+          gdk_device_get_axis (ev->device, coords[i]->axes,
                                GDK_AXIS_PRESSURE, &pressure);
           if (pressure > 0)
             {
 	      data->maxwidth = (CLAMP (pressure + line_thickener, 0, 1) *
-				(double) (slavedata->cur_context->width -
-					  slavedata->cur_context->minwidth) +
-				slavedata->cur_context->minwidth);
+				(double) (devdata->cur_context->width -
+					  devdata->cur_context->minwidth) +
+				devdata->cur_context->minwidth);
 
-              gdk_device_get_axis(slave, coords[i]->axes,
+              gdk_device_get_axis(ev->device, coords[i]->axes,
                                   GDK_AXIS_X, &x);
-              gdk_device_get_axis(slave, coords[i]->axes,
+              gdk_device_get_axis(ev->device, coords[i]->axes,
                                   GDK_AXIS_Y, &y);
 
-	      draw_line (data, slave, slavedata->lastx, slavedata->lasty, x, y);
+	      draw_line (data, ev->device, devdata->lastx, devdata->lasty, x, y);
 
-              coord_list_prepend (data, slave, x, y, data->maxwidth);
-              slavedata->lastx = x;
-              slavedata->lasty = y;
+              coord_list_prepend (data, ev->device, x, y, data->maxwidth);
+              devdata->lastx = x;
+              devdata->lasty = y;
             }
         }
 
-      slavedata->motion_time = coords[nevents-1]->time;
+      devdata->motion_time = coords[nevents-1]->time;
       g_free (coords);
     }
 
@@ -359,20 +339,20 @@ gboolean on_motion (GtkWidget *win,
   if (pressure > 0)
     {
       data->maxwidth = (CLAMP (pressure + line_thickener, 0, 1) *
-			(double) (slavedata->cur_context->width -
-				  slavedata->cur_context->minwidth) +
-			slavedata->cur_context->minwidth);
+			(double) (devdata->cur_context->width -
+				  devdata->cur_context->minwidth) +
+			devdata->cur_context->minwidth);
 
-      if(slavedata->motion_time > 0)
+      if(devdata->motion_time > 0)
 	{
-	  draw_line (data, slave, slavedata->lastx, slavedata->lasty, ev->x, ev->y);
-	  coord_list_prepend (data, slave, ev->x, ev->y, data->maxwidth);
+	  draw_line (data, ev->device, devdata->lastx, devdata->lasty, ev->x, ev->y);
+	  coord_list_prepend (data, ev->device, ev->x, ev->y, data->maxwidth);
 	}
     }
 
-  slavedata->lastx = ev->x;
-  slavedata->lasty = ev->y;
-  slavedata->motion_time = ev->time;
+  devdata->lastx = ev->x;
+  devdata->lasty = ev->y;
+  devdata->motion_time = ev->time;
 
   return TRUE;
 }
@@ -383,40 +363,28 @@ gboolean on_buttonrelease (GtkWidget *win,
 			   gpointer user_data)
 {
   GromitData *data = (GromitData *) user_data;
-
-  /* get the data for this device */
-  GdkDevice *master = ev->device;
-  GromitDeviceData *masterdata =
-    g_hash_table_lookup(data->devdatatable, master);
-  GdkDevice *slave =
-    gdk_event_get_source_device ((GdkEvent *) ev);
-  GromitDeviceData *slavedata =
-    g_hash_table_lookup(data->devdatatable, slave);
-
-  if(data->debug)
-    g_printerr("DEBUG: Device '%s': Button %i Up at (x,y)=(%.2f : %.2f)\n", 
-	       gdk_device_get_name(slave), ev->button, ev->x, ev->y);
+  /* get the device data for this event */
+  GromitDeviceData *devdata = g_hash_table_lookup(data->devdatatable, ev->device);
 
   gfloat direction = 0;
   gint width = 0;
-  if(slavedata->cur_context)
-    width = slavedata->cur_context->arrowsize *
-      slavedata->cur_context->width / 2;
+  if(devdata->cur_context)
+    width = devdata->cur_context->arrowsize * devdata->cur_context->width / 2;
+   
 
-  if ((ev->x != slavedata->lastx) ||
-      (ev->y != slavedata->lasty))
+  if ((ev->x != devdata->lastx) ||
+      (ev->y != devdata->lasty))
     on_motion(win, (GdkEventMotion *) ev, user_data);
 
-
-  if (!masterdata->is_grabbed)
+  if (!devdata->is_grabbed)
     return FALSE;
-
-  if (slavedata->cur_context->arrowsize != 0 &&
-      coord_list_get_arrow_param (data, slave, width * 3,
+  
+  if (devdata->cur_context->arrowsize != 0 &&
+      coord_list_get_arrow_param (data, ev->device, width * 3,
 				  &width, &direction))
-    draw_arrow (data, slave, ev->x, ev->y, width, direction);
+    draw_arrow (data, ev->device, ev->x, ev->y, width, direction);
 
-  coord_list_free (data, slave);
+  coord_list_free (data, ev->device);
 
   return TRUE;
 }
@@ -518,12 +486,11 @@ void on_device_removed (GdkDeviceManager *device_manager,
 			gpointer          user_data)
 {
   GromitData *data = (GromitData *) user_data;
-  GdkInputSource hardware_type = gdk_device_get_source(device);
-
-  if( hardware_type == GDK_SOURCE_KEYBOARD ||
-      gdk_device_get_n_axes(device) < 2)
+    
+  if(!gdk_device_get_device_type(device) == GDK_DEVICE_TYPE_MASTER
+     || gdk_device_get_n_axes(device) < 2)
     return;
-
+  
   if(data->debug)
     g_printerr("DEBUG: device '%s' removed\n", gdk_device_get_name(device));
 
@@ -535,10 +502,9 @@ void on_device_added (GdkDeviceManager *device_manager,
 		      gpointer          user_data)
 {
   GromitData *data = (GromitData *) user_data;
-  GdkInputSource hardware_type = gdk_device_get_source(device);
 
-  if( hardware_type == GDK_SOURCE_KEYBOARD ||
-      gdk_device_get_n_axes(device) < 2)
+  if(!gdk_device_get_device_type(device) == GDK_DEVICE_TYPE_MASTER
+     || gdk_device_get_n_axes(device) < 2)
     return;
 
   if(data->debug)
@@ -555,14 +521,11 @@ gboolean on_toggle_paint(GtkWidget *widget,
 {
     GromitData *data = (GromitData *) user_data;
 
-    GdkDevice *master = ev->device;
-    GdkDevice *slave = gdk_event_get_source_device ((GdkEvent *) ev);
-
     if(data->debug)
 	g_printerr("DEBUG: Device '%s': Button %i on_toggle_paint at (x,y)=(%.2f : %.2f)\n",
-		   gdk_device_get_name(slave), ev->button, ev->x, ev->y);
+		   gdk_device_get_name(ev->device), ev->button, ev->x, ev->y);
 
-    toggle_grab(data, master);
+    toggle_grab(data, ev->device);
 
     return TRUE;
 }
@@ -634,42 +597,23 @@ void on_redo(GtkMenuItem *menuitem,
 }
 
 
-void on_help(GtkMenuItem *menuitem,
-	     gpointer     user_data)
-{
-    GromitData *data = (GromitData *) user_data;
-
-    gchar helpString[4096];
-    snprintf(helpString, 4096,  "The available commands are:\n\n<tt><b>\
-    toggle painting:         %s\n\
-    clear screen:            SHIFT-%s\n\
-    toggle visibility:       CTRL-%s\n\
-    quit:                    ALT-%s\n\
-    undo last stroke:        %s\n\
-    redo last undone stroke: SHIFT-%s</b></tt>",
-	     data->hot_keyval, data->hot_keyval, data->hot_keyval, data->hot_keyval,
-	     data->undo_keyval, data->undo_keyval);
-
-    GtkWidget *dialog = gtk_message_dialog_new(NULL,
-					       GTK_DIALOG_DESTROY_WITH_PARENT,
-					       GTK_MESSAGE_INFO,
-					       GTK_BUTTONS_CLOSE,
-					       NULL);
-    gtk_message_dialog_set_markup (GTK_MESSAGE_DIALOG (dialog), helpString);
-
-    g_signal_connect_swapped (dialog, "response",
-			      G_CALLBACK (gtk_widget_destroy),
-			      dialog);
-
-    gtk_widget_show_all(dialog);
-}
-
-
-
 void on_about(GtkMenuItem *menuitem,
 	      gpointer     user_data)
 {
-    const gchar *authors [] = { "Christian Beier <dontmind@freeshell.org>", "Simon Budig <Simon.Budig@unix-ag.org>", NULL };
+    const gchar *authors [] = { "Christian Beier <dontmind@freeshell.org>",
+                                "Simon Budig <Simon.Budig@unix-ag.org>",
+                                "Barak A. Pearlmutter <barak+git@pearlmutter.net>",
+                                "Nathan Whitehead <nwhitehe@gmail.com>",
+                                "Lukáš Hermann <tuxilero@gmail.com>",
+                                "Katie Holly <git@meo.ws>",
+                                "Monty Montgomery <xiphmont@gmail.com>",
+                                "AlisterH <alister.hood@gmail.com>",
+                                "Mehmet Atif Ergun <mehmetaergun@users.noreply.github.com>",
+                                "Russel Winder <russel@winder.org.uk>",
+                                "Tao Klerks <tao@klerks.biz>",
+                                "Tobias Schönberg <tobias47n9e@gmail.com>",
+                                "Yuri D'Elia <yuri.delia@eurac.edu>",
+                                 NULL };
     gtk_show_about_dialog (NULL,
 			   "program-name", "Gromit-MPX",
 			   "logo-icon-name", "gromit-mpx",
@@ -678,9 +622,82 @@ void on_about(GtkMenuItem *menuitem,
 			   "version", VERSION,
 			   "website", "https://github.com/bk138/gromit-mpx",
 			   "authors", authors,
-			   "copyright", "Copyright 2000 Simon Budig, 2009-2016 Christian Beier",
+			   "copyright", "Copyright 2000 Simon Budig, 2009-2018 Christian Beier",
 			   "license-type", GTK_LICENSE_GPL_2_0,
 			   NULL);
 }
 
 
+static void on_intro_show_again_button_toggled(GtkCheckButton *toggle, GromitData *data)
+{
+  data->show_intro_on_startup = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (toggle));
+}
+
+void on_intro(GtkMenuItem *menuitem,
+	      gpointer user_data)
+{
+    GromitData *data = (GromitData *) user_data;
+
+    // Create a new assistant widget with no pages.
+    GtkWidget *assistant = gtk_assistant_new ();
+    gtk_window_set_position (GTK_WINDOW(assistant), GTK_WIN_POS_CENTER);
+
+    // set page one
+    GtkWidget *widgetOne = gtk_label_new ("Gromit-MPX (GRaphics Over MIscellaneous Things) is a small tool to make\n"
+					  "annotations on the screen.\n\n"
+					  "Its main use is for making presentations of some application. Normally,\n"
+					  "you would have to move the mouse pointer around the point of interest\n"
+					  "until hopefully everybody noticed it.  With Gromit-MPX, you can draw\n"
+					  "everywhere onto the screen, highlighting some button or area.");
+    gtk_assistant_append_page (GTK_ASSISTANT (assistant), widgetOne);
+    gtk_assistant_set_page_title (GTK_ASSISTANT (assistant), widgetOne, "Gromit-MPX - What is it?");
+    gtk_assistant_set_page_type (GTK_ASSISTANT (assistant), widgetOne, GTK_ASSISTANT_PAGE_INTRO);
+    gtk_assistant_set_page_complete (GTK_ASSISTANT (assistant), widgetOne, TRUE);
+
+    // set page two
+    GtkWidget *widgetTwo = gtk_label_new (NULL);
+    char widgetTwoBuf[4096];
+    snprintf(widgetTwoBuf, sizeof(widgetTwoBuf),
+	     "You can operate Gromit-MPX using its tray icon (if your desktop environment\n"
+	     "provides a sys tray), but since you typically want to use the program you are\n"
+	     "demonstrating and highlighting something is a short interruption of your\n"
+	     "workflow, Gromit-MPX can be toggled on and off on the fly via a hotkey:\n\n"
+	     "It grabs the `%s` and `%s` keys, so that no other application can use them\n"
+	     "and they are available to Gromit-MPX only.  The available commands are:\n\n<tt><b>"
+	     "   toggle painting:         %s\n"
+	     "   clear screen:            SHIFT-%s\n"
+	     "   toggle visibility:       CTRL-%s\n"
+	     "   quit:                    ALT-%s\n"
+	     "   undo last stroke:        %s\n"
+	     "   redo last undone stroke: SHIFT-%s</b></tt>",
+	     data->hot_keyval, data->undo_keyval,
+	     data->hot_keyval, data->hot_keyval, data->hot_keyval, data->hot_keyval, data->undo_keyval, data->undo_keyval);
+    gtk_label_set_markup (GTK_LABEL (widgetTwo), widgetTwoBuf);
+    gtk_assistant_append_page (GTK_ASSISTANT (assistant), widgetTwo);
+    gtk_assistant_set_page_title (GTK_ASSISTANT (assistant), widgetTwo, "Gromit-MPX - How to use it");
+    gtk_assistant_set_page_type (GTK_ASSISTANT (assistant), widgetTwo, GTK_ASSISTANT_PAGE_CONTENT);
+    gtk_assistant_set_page_complete (GTK_ASSISTANT (assistant), widgetTwo, TRUE);
+
+    // set page three
+    GtkWidget *widgetThree = gtk_grid_new ();
+    GtkWidget *widgetThreeText = gtk_label_new ("Do you want to show this introduction again on the next start of Gromit-MPX?\n"
+						"You can always access it again via the sys tray menu.\n");
+    GtkWidget *widgetThreeButton = gtk_check_button_new_with_label ("Show again on startup");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widgetThreeButton), data->show_intro_on_startup);
+    gtk_grid_attach (GTK_GRID (widgetThree), widgetThreeText, 0, 0, 1, 1);
+    gtk_grid_attach_next_to (GTK_GRID (widgetThree), widgetThreeButton, widgetThreeText, GTK_POS_BOTTOM, 1, 1);
+    g_signal_connect (G_OBJECT (widgetThreeButton), "toggled",
+		      G_CALLBACK (on_intro_show_again_button_toggled), data);
+    gtk_assistant_append_page (GTK_ASSISTANT (assistant), widgetThree);
+    gtk_assistant_set_page_type (GTK_ASSISTANT (assistant), widgetThree, GTK_ASSISTANT_PAGE_CONFIRM);
+    gtk_assistant_set_page_complete (GTK_ASSISTANT (assistant), widgetThree, TRUE);
+
+    // connect the close buttons
+    g_signal_connect (G_OBJECT (assistant), "cancel",
+		      G_CALLBACK (gtk_widget_destroy), NULL);
+    g_signal_connect (G_OBJECT (assistant), "close",
+		      G_CALLBACK (gtk_widget_destroy), NULL);
+
+    // show
+    gtk_widget_show_all (assistant);
+}

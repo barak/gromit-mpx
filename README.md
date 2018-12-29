@@ -1,6 +1,6 @@
-[![Build Status](https://travis-ci.org/bk138/gromit-mpx.svg?branch=master)](https://travis-ci.org/bk138/gromit-mpx)
+# Gromit-MPX
 
-## Gromit-MPX
+[![Build Status](https://travis-ci.org/bk138/gromit-mpx.svg?branch=master)](https://travis-ci.org/bk138/gromit-mpx)
 
 Gromit-MPX is a multi-pointer port of the original [Gromit annotation
 tool](http://www.home.unix-ag.org/simon/gromit) by [Simon
@@ -11,9 +11,7 @@ A **lot** faster since it uses the XCOMPOSITE extension where
 available.  Also, it does not inhibit Drag-and-Drop like the original
 Gromit tool.
 
-
-
-### What is it?
+## What it is
 
 Gromit-MPX (GRaphics Over MIscellaneous Things) is a small tool to
 make annotations on the screen.
@@ -23,14 +21,12 @@ Normally, you would have to move the mouse pointer around the point of
 interest until hopefully everybody noticed it.  With Gromit-MPX, you
 can draw everywhere onto the screen, highlighting some button or area.
 
-
 Similar tools for MS-Windows include *DemoHelper* (GPLv2 also), or
 proprietary tools like *ZoomIt* and *ScreenMarker*.  For Compiz, there
 is also the *Annotate* plugin, and the much-flashier *Firepaint (paint
 fire on screen)* plugin.
 
-
-### How to use it
+## How to use it
 
 You can operate Gromit-MPX using its tray icon (if your desktop environment
 provides a sys tray), but since you typically want to use the program you
@@ -44,21 +40,20 @@ commands are:
     F9:        toggle painting
     SHIFT-F9:  clear screen
     CTRL-F9:   toggle visibility
-    ALT-F9:    Quit Gromit-MPX.
+    ALT-F9:    quit Gromit-MPX
     F10:       undo last stroke
     SHIFT-F10: redo last undone stroke
 
 You can specify the keys to grab via:
-```
-gromit-mpx --key <keysym> --undo-key <keysym>
-```
+
+    gromit-mpx --key <keysym> --undo-key <keysym>
+
 Specifying an empty string or `none` for the keysym will prevent gromit
 from grabbing a key.
 
 You can specify the opacity simply via:
-```
-gromit-mpx -o <opacity>
-```
+
+    gromit-mpx -o <opacity>
 
 Alternatively you can invoke Gromit-MPX with various arguments to
 control an already running Gromit-MPX .
@@ -92,20 +87,27 @@ possible to erase something with the other end of the (Wacom) pen.
 Undo/redo commands are cumulative. For example, sending two undo commands
 will undo the last two strokes. The maximum undo/redo depth is 4 strokes.
 
+### Setting up multi-pointer
 
-### Building it
+As its name implies, Gromit-MPX relies on Multi-Pointer-X functionality
+provided by the XInput2 extension.
 
-Gromit-MPX uses CMake as its build system. Thus, it's the usual:
+You can create a simple MPX setup via the `xinput` utility:
 
-    mkdir build
-    cd build
-    cmake ..
-    make
+    xinput --create-master two # create a second input focus (master)
+    xinput --list # see your master and slave devices and ids
+    xinput --reattach <slave-id> <master-id-of-'two'> # reattach slave
 
-from the root of the source tree.
+If you attach a keyboard slave device to the newly created second master,
+its hotkey will activate annotation mode for the associated pointer only.
+This way, can use a second pair of input devices to annotate while
+continuing to work normally with the first pair.
 
+Alternatively, you can also use the graphical tool [gnome-device-
+manager](https://github.com/bk138/gnome-device-manager) to arrange your
+MPX setup.
 
-### Configuration:
+### Configuration
 
 Gromit-MPX is configurable via the file `gromit-mpx.cfg` in the
 directory defined by `$XDG_CONFIG_HOME` (usually `~/.config`).  Here
@@ -144,10 +146,8 @@ the shape. Try it out to see the effect.
 
     "green Marker" = RECOLOR (color = "Limegreen");
 
-
 If you define a tool with the same name as an input-device
-(see the output of `xsetpointer -l`, if there is a `SWITCH`-Tool
-it is uninteresting...) this input-device uses this tool.
+(see the output of `xinput --list`) this input-device uses this tool.
 Additionally you can limit the Scope to specific combinations of
 Mousebuttons (1,2,3,4,5 or Button1,...,Button5)
 and Modifiers (`SHIFT`, `CONTROL`, `ALT`, `META`, while `ALT==META`).
@@ -158,7 +158,7 @@ and Modifiers (`SHIFT`, `CONTROL`, `ALT`, `META`, while `ALT==META`).
     "Core Pointer"[2] = "green Marker";
     "Core Pointer"[Button3] = "Eraser";
 
-The descision, which tool to use follows a simple policy:
+The descision which tool to use follows a simple policy:
 
 1. Buttons are more important than Modifiers
 2. Low number Buttons are more important than higher ones
@@ -168,10 +168,21 @@ The descision, which tool to use follows a simple policy:
       and only `SHIFT` actually is pressed, Gromit-MPX will use the second
       definition if there is no `"Core Pointer"[SHIFT]` definition.
       The same logic holds for the buttons.
+5. Slave device config takes precedence over master device config, which
+   in turn takes precedence over the fallback default config.
 
+## Building it
 
+Gromit-MPX uses CMake as its build system. Thus, it's the usual:
 
-### Potential Problems:
+    mkdir build
+    cd build
+    cmake ..
+    make
+
+from the root of the source tree.
+
+## Potential Problems
 
 When there is no compositing manager such as Compiz or xcompmgr
 running, Gromit-MPX falls back to a legacy drawing mode. This may
@@ -181,11 +192,8 @@ quite expensive if you paint a complex pattern on screen. Especially
 terminal-programs tend to scroll incredibly slow if something is
 painted over their window.
 
-
-
 Like the original Gromit, this program is distributed under the Gnu
 General Public License.  See the file `COPYING` for details.  Thanks
 to Simon for the groundwork done!
-
 
 ---[Christian Beier](mailto:dontmind@freeshell.org)

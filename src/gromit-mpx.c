@@ -316,27 +316,27 @@ gint reshape (gpointer user_data)
 
 
 void select_tool (GromitData *data, 
-		  GdkDevice *master, 
-		  GdkDevice *slave, 
+		  GdkDevice *device, 
+		  GdkDevice *slave_device,
 		  guint state)
 {
-  guint buttons = 0, modifier = 0, len = 0, default_len = 0;
+  guint buttons = 0, modifier = 0, slave_len = 0, len = 0, default_len = 0;
   guint req_buttons = 0, req_modifier = 0;
   guint i, j, success = 0;
   GromitPaintContext *context = NULL;
+  guchar *slave_name;
   guchar *name;
   guchar *default_name;
 
   /* get the data for this device */
-  GromitDeviceData *masterdata =
-    g_hash_table_lookup(data->devdatatable, master);
-  GromitDeviceData *slavedata =
-    g_hash_table_lookup(data->devdatatable, slave);
+  GromitDeviceData *devdata = g_hash_table_lookup(data->devdatatable, device);
  
-  if (slave)
+  if (device)
     {
-      len = strlen (gdk_device_get_name(slave));
-      name = (guchar*) g_strndup (gdk_device_get_name(slave), len + 3);
+      slave_len = strlen (gdk_device_get_name(slave_device));
+      slave_name = (guchar*) g_strndup (gdk_device_get_name(slave_device), slave_len + 3);
+      len = strlen (gdk_device_get_name(device));
+      name = (guchar*) g_strndup (gdk_device_get_name(device), len + 3);
       default_len = strlen(DEFAULT_DEVICE_NAME);
       default_name = (guchar*) g_strndup (DEFAULT_DEVICE_NAME, default_len + 3);
       
@@ -347,6 +347,8 @@ void select_tool (GromitData *data,
       req_modifier = (state >> 1) & 7;
       if (state & GDK_SHIFT_MASK) req_modifier |= 1;
 
+      slave_name [slave_len] = 124;
+      slave_name [slave_len+3] = 0;
       name [len] = 124;
       name [len+3] = 0;
       default_name [default_len] = 124;
@@ -364,28 +366,37 @@ void select_tool (GromitData *data,
             {
               j++;
               modifier = req_modifier & ((1 << j)-1);
+              slave_name [slave_len+1] = buttons + 64;
+              slave_name [slave_len+2] = modifier + 48;
               name [len+1] = buttons + 64;
               name [len+2] = modifier + 48;
               default_name [default_len+1] = buttons + 64;
               default_name [default_len+2] = modifier + 48;
 
-	      if(data->debug)
-		g_printerr("DEBUG: select_tool looking up context for %s\n", name);
+	            if(data->debug)
+                g_printerr("DEBUG: select_tool looking up context for '%s' attached to '%s'\n", slave_name, name);
 
-              context = g_hash_table_lookup (data->tool_config, name);
-              if(context)
+              context = g_hash_table_lookup (data->tool_config, slave_name);
+              if(context) {
+                  if(data->debug)
+                    g_printerr("DEBUG: select_tool set context for '%s'\n", slave_name);
+                  devdata->cur_context = context;
+                  success = 1;
+              }
+              else /* try master name */
+              if ((context = g_hash_table_lookup (data->tool_config, name)))
                 {
                   if(data->debug)
-                    g_printerr("DEBUG: select_tool set context for %s\n", name);
-                  slavedata->cur_context = context;
+                    g_printerr("DEBUG: select_tool set context for '%s'\n", name);
+                  devdata->cur_context = context;
                   success = 1;
                 }
               else /* try default_name */
                 if((context = g_hash_table_lookup (data->tool_config, default_name)))
                   {
                     if(data->debug)
-                      g_printerr("DEBUG: select_tool set default context %s for %s\n", default_name, name);
-                    slavedata->cur_context = context;
+                      g_printerr("DEBUG: select_tool set default context '%s' for '%s'\n", default_name, name);
+                    devdata->cur_context = context;
                     success = 1;
                   }
                 
@@ -399,18 +410,18 @@ void select_tool (GromitData *data,
 
       if (!success)
         {
-          if (gdk_device_get_source(slave) == GDK_SOURCE_ERASER)
-            slavedata->cur_context = data->default_eraser;
+          if (gdk_device_get_source(device) == GDK_SOURCE_ERASER)
+            devdata->cur_context = data->default_eraser;
           else
-            slavedata->cur_context = data->default_pen;
+            devdata->cur_context = data->default_pen;
         }
     }
   else
     g_printerr ("ERROR: select_tool attempted to select nonexistent device!\n");
 
   GdkCursor *cursor;
-  if(slavedata->cur_context && slavedata->cur_context->type == GROMIT_ERASER)
-    cursor = data->erase_cursor;
+  if(devdata->cur_context && devdata->cur_context->type == GROMIT_ERASER)
+    cursor = data->erase_cursor; 
   else
     cursor = data->paint_cursor;
 
@@ -422,7 +433,7 @@ void select_tool (GromitData *data,
   //FIXME!  Should be:
   //gdk_window_set_cursor(gtk_widget_get_window(data->win), cursor);
   // doesn't work during a grab?
-  gdk_device_grab(master,
+  gdk_device_grab(device,
   		  gtk_widget_get_window(data->win),
   		  GDK_OWNERSHIP_NONE,
   		  FALSE,
@@ -430,9 +441,8 @@ void select_tool (GromitData *data,
   		  cursor,
   		  GDK_CURRENT_TIME);
 
-  masterdata->lastslave = slave;
-  masterdata->state = state;
-  slavedata->state = state;
+  devdata->state = state;
+  devdata->lastslave = slave_device;
 }
 
 
@@ -784,7 +794,11 @@ void setup_main_app (GromitData *data, gboolean activate)
   parse_config (data);
   if (data->debug)
     g_hash_table_foreach (data->tool_config, parse_print_help, NULL);
-  
+
+  /*
+    parse key file
+  */
+  read_keyfile(data);
 
   /* 
      FIND HOTKEY KEYCODE 
@@ -887,21 +901,28 @@ void setup_main_app (GromitData *data, gboolean activate)
   /* create the menu */
   GtkWidget *menu = gtk_menu_new ();
 
+  char labelBuf[128];
   /* Create the menu items */
-  GtkWidget* toggle_paint_item = gtk_menu_item_new_with_label ("Toggle Painting");
-  GtkWidget* clear_item = gtk_menu_item_new_with_label ("Clear Screen");
-  GtkWidget* toggle_vis_item = gtk_menu_item_new_with_label ("Toggle Visibility");
+  snprintf(labelBuf, sizeof(labelBuf), "Toggle Painting (%s)", data->hot_keyval);
+  GtkWidget* toggle_paint_item = gtk_menu_item_new_with_label (labelBuf);
+  snprintf(labelBuf, sizeof(labelBuf), "Clear Screen (SHIFT-%s)", data->hot_keyval);
+  GtkWidget* clear_item = gtk_menu_item_new_with_label (labelBuf);
+  snprintf(labelBuf, sizeof(labelBuf), "Toggle Visibility (CTRL-%s)", data->hot_keyval);
+  GtkWidget* toggle_vis_item = gtk_menu_item_new_with_label (labelBuf);
   GtkWidget* thicker_lines_item = gtk_menu_item_new_with_label ("Thicker Lines");
   GtkWidget* thinner_lines_item = gtk_menu_item_new_with_label ("Thinner Lines");
   GtkWidget* opacity_bigger_item = gtk_menu_item_new_with_label ("Bigger Opacity");
   GtkWidget* opacity_lesser_item = gtk_menu_item_new_with_label ("Lesser Opacity");
-  GtkWidget* undo_item = gtk_menu_item_new_with_label ("Undo");
-  GtkWidget* redo_item = gtk_menu_item_new_with_label ("Redo");
+  snprintf(labelBuf, sizeof(labelBuf), "Undo (%s)", data->undo_keyval);
+  GtkWidget* undo_item = gtk_menu_item_new_with_label (labelBuf);
+  snprintf(labelBuf, sizeof(labelBuf), "Redo (SHIFT-%s)", data->undo_keyval);
+  GtkWidget* redo_item = gtk_menu_item_new_with_label (labelBuf);
 
   GtkWidget* sep_item = gtk_separator_menu_item_new();
-  GtkWidget* help_item = gtk_menu_item_new_with_mnemonic("_Help");
+  GtkWidget* intro_item = gtk_menu_item_new_with_mnemonic("_Introduction");
   GtkWidget* about_item = gtk_menu_item_new_with_mnemonic("_About");
-  GtkWidget* quit_item = gtk_menu_item_new_with_mnemonic("_Quit");
+  snprintf(labelBuf, sizeof(labelBuf), "_Quit (ALT-%s)", data->hot_keyval);
+  GtkWidget* quit_item = gtk_menu_item_new_with_mnemonic(labelBuf);
 
 
   /* Add them to the menu */
@@ -916,7 +937,7 @@ void setup_main_app (GromitData *data, gboolean activate)
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), redo_item);
 
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), sep_item);
-  gtk_menu_shell_append (GTK_MENU_SHELL (menu), help_item);
+  gtk_menu_shell_append (GTK_MENU_SHELL (menu), intro_item);
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), about_item);
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), quit_item);
 
@@ -950,8 +971,8 @@ void setup_main_app (GromitData *data, gboolean activate)
 		   G_CALLBACK (on_redo),
 		   data);
 
-  g_signal_connect(G_OBJECT (help_item), "activate",
-		   G_CALLBACK (on_help),
+  g_signal_connect(G_OBJECT (intro_item), "activate",
+		   G_CALLBACK (on_intro),
 		   data);
   g_signal_connect(G_OBJECT (about_item), "activate",
 		   G_CALLBACK (on_about),
@@ -973,13 +994,15 @@ void setup_main_app (GromitData *data, gboolean activate)
   gtk_widget_show (redo_item);
 
   gtk_widget_show (sep_item);
-  gtk_widget_show (help_item);
+  gtk_widget_show (intro_item);
   gtk_widget_show (about_item);
   gtk_widget_show (quit_item);
 
 
   app_indicator_set_menu (data->trayicon, GTK_MENU(menu));
 
+  if(data->show_intro_on_startup)
+      on_intro(NULL, data);
 }
 
 
@@ -1057,7 +1080,7 @@ int app_parse_args (int argc, char **argv, GromitData *data)
              }
            else
              {
-               g_printerr ("-o requires an opacity >= 0,0 && <=1,0 as argument\n");
+               g_printerr ("-o requires an opacity >=0 and <=1 as argument\n");
                wrong_arg = TRUE;
              }
          }
@@ -1264,6 +1287,7 @@ int main (int argc, char **argv)
   setup_main_app (data, app_parse_args (argc, argv, data));
   gtk_main ();
   release_grab(data, NULL); /* ungrab all */
+  write_keyfile(data); // save keyfile config
   g_free (data);
   return 0;
 }

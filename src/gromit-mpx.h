@@ -30,12 +30,11 @@
 #include <libappindicator/app-indicator.h>
 
 
-#define GROMIT_MOUSE_EVENTS ( GDK_POINTER_MOTION_MASK | \
-                              GDK_BUTTON_MOTION_MASK | \
+#define GROMIT_MOUSE_EVENTS ( GDK_BUTTON_MOTION_MASK | \
                               GDK_BUTTON_PRESS_MASK | \
                               GDK_BUTTON_RELEASE_MASK )
 
-#define GROMIT_WINDOW_EVENTS ( GROMIT_MOUSE_EVENTS | GDK_EXPOSURE_MASK )
+#define GROMIT_WINDOW_EVENTS ( GROMIT_MOUSE_EVENTS | GDK_EXPOSURE_MASK)
 
 /* Atoms used to control Gromit */
 #define GA_CONTROL    gdk_atom_intern ("Gromit/control", FALSE)
@@ -145,6 +144,8 @@ typedef struct
   cairo_surface_t *undobuffer[GROMIT_MAX_UNDO];
   gint            undo_head, undo_depth, redo_depth;
 
+  gboolean show_intro_on_startup;
+
 } GromitData;
 
 
@@ -154,7 +155,7 @@ void show_window (GromitData *data);
 
 void parse_print_help (gpointer key, gpointer value, gpointer user_data);
 
-void select_tool (GromitData *data, GdkDevice *master, GdkDevice *slave, guint state);
+void select_tool (GromitData *data, GdkDevice *device, GdkDevice *slave_device, guint state);
 
 void copy_surface (cairo_surface_t *dst, cairo_surface_t *src);
 void swap_surfaces (cairo_surface_t *a, cairo_surface_t *b);
