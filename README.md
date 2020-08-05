@@ -1,6 +1,10 @@
 # Gromit-MPX
 
 [![Build Status](https://travis-ci.org/bk138/gromit-mpx.svg?branch=master)](https://travis-ci.org/bk138/gromit-mpx)
+[![Help making this possible](https://img.shields.io/badge/liberapay-donate-yellow.png)](https://liberapay.com/bk138/donate)
+[![Become a patron](https://img.shields.io/badge/patreon-donate-yellow.svg)](https://www.patreon.com/bk138)
+[![Donate](https://img.shields.io/badge/paypal-donate-yellow.png)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=N7GSSPRPUSTPU&source=url)
+[![Gitter](https://badges.gitter.im/gromit-mpx/community.svg)](https://gitter.im/gromit-mpx/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 Gromit-MPX is a multi-pointer port of the original [Gromit annotation
 tool](http://www.home.unix-ag.org/simon/gromit) by [Simon
@@ -10,6 +14,8 @@ It enables graphical annotations with several pointers at once and is
 A **lot** faster since it uses the XCOMPOSITE extension where
 available.  Also, it does not inhibit Drag-and-Drop like the original
 Gromit tool.
+
+If you already used Gromit-MPX, you probably want to read [NEWS](NEWS.md).
 
 ## What it is
 
@@ -33,7 +39,7 @@ provides a sys tray), but since you typically want to use the program you
 are demonstrating and highlighting something is a short interruption of
 your workflow, Gromit-MPX can be toggled on and off on the fly via a hotkey:
 
-Per default, it grabs the `F9` and `F10` keys, so that no other application
+Per default, it grabs the `F9` and `F8` keys, so that no other application
 can use them and they are available to Gromit-MPX only.  The available
 commands are:
 
@@ -41,8 +47,8 @@ commands are:
     SHIFT-F9:  clear screen
     CTRL-F9:   toggle visibility
     ALT-F9:    quit Gromit-MPX
-    F10:       undo last stroke
-    SHIFT-F10: redo last undone stroke
+    F8:       undo last stroke
+    SHIFT-F8: redo last undone stroke
 
 You can specify the keys to grab via:
 
@@ -130,6 +136,11 @@ The following Entries copy an existing configuration (in this case
     "blue Pen" = "red Pen" (color="blue");
     "yellow Pen" = "red Pen" (color="yellow");
 
+If you want another minimum size instead of the default 1, add `minsize`
+like this:
+
+	"red Marker" = "red Pen" (minsize=14);
+
 You can also draw lines that end in an arrow head. For this you
 have to specify `arrowsize`. This is a factor relative to the width
 of the line. For reasonable arrowheads start with 1.
@@ -147,7 +158,11 @@ the shape. Try it out to see the effect.
     "green Marker" = RECOLOR (color = "Limegreen");
 
 If you define a tool with the same name as an input-device
-(see the output of `xinput --list`) this input-device uses this tool.
+(see the output of `xinput --list`) this input-device uses this tool:
+
+	"ELAN Touchscreen Pen (0)" = "red Pen";
+	"ELAN Touchscreen Eraser (0)" = "Eraser";
+
 Additionally you can limit the Scope to specific combinations of
 Mousebuttons (1,2,3,4,5 or Button1,...,Button5)
 and Modifiers (`SHIFT`, `CONTROL`, `ALT`, `META`, while `ALT==META`).
@@ -158,7 +173,15 @@ and Modifiers (`SHIFT`, `CONTROL`, `ALT`, `META`, while `ALT==META`).
     "Core Pointer"[2] = "green Marker";
     "Core Pointer"[Button3] = "Eraser";
 
-The descision which tool to use follows a simple policy:
+If you want to limit drawing to a specific input device, define a
+tool with the same name as an input device like above and disable
+drawing for all others by assigning a zero-width tool like this:
+
+	"no Pen" = PEN (size=0);
+	"default" = "no Pen";
+
+
+The decision which tool to use follows a simple policy:
 
 1. Buttons are more important than Modifiers
 2. Low number Buttons are more important than higher ones
@@ -170,6 +193,9 @@ The descision which tool to use follows a simple policy:
       The same logic holds for the buttons.
 5. Slave device config takes precedence over master device config, which
    in turn takes precedence over the fallback default config.
+   
+You can also change the [hotkeys from the config](data/gromit-mpx.cfg#L5) file by setting the respective
+`HOTKEY` and/or `UNDOKEY` values.
 
 ## Building it
 

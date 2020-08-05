@@ -28,11 +28,15 @@
 #include <fcntl.h>
 #include <errno.h>
 
+#include "config.h"
 #include "gromit-mpx.h"
 
 #define KEY_DFLT_SHOW_INTRO_ON_STARTUP TRUE
 
 #define KEYFILE_FLAGS G_KEY_FILE_KEEP_COMMENTS|G_KEY_FILE_KEEP_TRANSLATIONS
+
+static gpointer HOTKEY_SYMBOL_VALUE  = (gpointer) 3;
+static gpointer UNDOKEY_SYMBOL_VALUE = (gpointer) 4;
 
 /*
  * Functions for parsing the Configuration-file
@@ -152,6 +156,8 @@ void parse_config (GromitData *data)
   g_scanner_scope_add_symbol (scanner, 0, "PEN",    (gpointer) GROMIT_PEN);
   g_scanner_scope_add_symbol (scanner, 0, "ERASER", (gpointer) GROMIT_ERASER);
   g_scanner_scope_add_symbol (scanner, 0, "RECOLOR",(gpointer) GROMIT_RECOLOR);
+  g_scanner_scope_add_symbol (scanner, 0, "HOTKEY",            HOTKEY_SYMBOL_VALUE);
+  g_scanner_scope_add_symbol (scanner, 0, "UNDOKEY",           UNDOKEY_SYMBOL_VALUE);
 
   g_scanner_scope_add_symbol (scanner, 1, "BUTTON1", (gpointer) 1);
   g_scanner_scope_add_symbol (scanner, 1, "BUTTON2", (gpointer) 2);
@@ -176,13 +182,12 @@ void parse_config (GromitData *data)
   token = g_scanner_get_next_token (scanner);
   while (token != G_TOKEN_EOF)
     {
-
-      /*
-       * New tool definition
-       */
-
       if (token == G_TOKEN_STRING)
         {
+          /*
+           * New tool definition
+           */
+
           name = parse_name (scanner);
           token = g_scanner_cur_token(scanner);
 
@@ -353,9 +358,53 @@ void parse_config (GromitData *data)
           context = paint_context_new (data, type, fg_color, width, arrowsize, minwidth);
           g_hash_table_insert (data->tool_config, name, context);
         }
+      else if (token == G_TOKEN_SYMBOL &&
+               (scanner->value.v_symbol == HOTKEY_SYMBOL_VALUE ||
+                scanner->value.v_symbol == UNDOKEY_SYMBOL_VALUE))
+        {
+          /*
+           * Hot key definition
+           */
+
+          gpointer key_type = scanner->value.v_symbol;
+          token = g_scanner_get_next_token(scanner);
+
+          if (token != G_TOKEN_EQUAL_SIGN)
+            {
+              g_scanner_unexp_token (scanner, G_TOKEN_EQUAL_SIGN, NULL,
+                                     NULL, NULL, "aborting", TRUE);
+              exit (1);
+            }
+
+          token = g_scanner_get_next_token (scanner);
+
+          if (token != G_TOKEN_STRING)
+            {
+              g_scanner_unexp_token (scanner, G_TOKEN_STRING, NULL,
+                                     NULL, NULL, "aborting", TRUE);
+              exit (1);
+            }
+
+          if (key_type == HOTKEY_SYMBOL_VALUE && g_strcmp0(data->hot_keyval, DEFAULT_HOTKEY) == 0)
+            {
+              data->hot_keyval = g_strdup(scanner->value.v_string);
+            }
+          else if (key_type == UNDOKEY_SYMBOL_VALUE && g_strcmp0(data->undo_keyval, DEFAULT_UNDOKEY) == 0)
+            {
+              data->undo_keyval = g_strdup(scanner->value.v_string);
+            }
+
+          token = g_scanner_get_next_token(scanner);
+
+          if (token != ';')
+            {
+              g_printerr ("Expected \";\"\n");
+              exit (1);
+            }
+        }
       else
         {
-          g_printerr ("Expected name of Tool to define\n");
+          g_printerr ("Expected name of Tool to define or Hot key definition\n");
           exit(1);
         }
 

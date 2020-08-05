@@ -2,7 +2,17 @@ cmake_minimum_required(VERSION 3.0)
 project(gromit-mpx LANGUAGES C)
 
 set(target_name gromit-mpx)
-set(version 1.3)
+set(version 1.3.1)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+if(CMAKE_GENERATOR MATCHES "Unix Makefiles|Ninja")
+# some LSP servers expect compile_commands.json in the project root
+add_custom_target(
+    copy-compile-commands ALL
+    ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_BINARY_DIR}/compile_commands.json
+        ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+endif(CMAKE_GENERATOR MATCHES "Unix Makefiles|Ninja")
 
 set(CMAKE_C_FLAGS  " ${CMAKE_C_FLAGS} -Wall -Wextra -Wno-unused-parameter")
 
@@ -58,7 +68,7 @@ include(GNUInstallDirs)
 install(TARGETS ${target_name} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES data/gromit-mpx.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 install(FILES data/gromit-mpx.cfg DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/gromit-mpx)
-install(FILES README.md AUTHORS ChangeLog NEWS DESTINATION ${CMAKE_INSTALL_DOCDIR})
+install(FILES README.md AUTHORS ChangeLog NEWS.md DESTINATION ${CMAKE_INSTALL_DOCDIR})
 install(FILES gromit-mpx.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
 install(FILES data/gromit-mpx.png data/gromit-mpx.xpm DESTINATION ${CMAKE_INSTALL_DATADIR}/pixmaps)
 install(FILES data/gromit-mpx.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)

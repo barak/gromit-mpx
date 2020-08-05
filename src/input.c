@@ -72,7 +72,7 @@ void setup_input_devices (GromitData *data)
 	  /* get attached keyboard and grab the hotkey */
 	  if (!data->hot_keycode && !data->undo_keycode)
 	    {
-	      g_printerr("ERROR: Grabbing hotkey from attached keyboard of '%s' failed, no hotkey defined.\n",
+	      g_printerr("ERROR: Grabbing keys from attached keyboard of '%s' failed, hotkey or undo key not defined.\n",
 			 gdk_device_get_name(device));
 	      g_free(devdata);
 	      continue;
@@ -97,7 +97,7 @@ void setup_input_devices (GromitData *data)
 	      if(kbd_dev_id != -1)
 		  {
 		      if(data->debug)
-			  g_printerr("DEBUG: Grabbing hotkeys from keyboard '%d' .\n", kbd_dev_id);
+			  g_printerr("DEBUG: Grabbing hotkeys '%s' and '%s' from keyboard '%d' .\n", data->hot_keyval, data->undo_keyval, kbd_dev_id);
 
 		      XIEventMask mask;
 		      unsigned char bits[4] = {0,0,0,0};
@@ -110,38 +110,61 @@ void setup_input_devices (GromitData *data)
 		      XIGrabModifiers modifiers[] = {{XIAnyModifier, 0}};
 		      int nmods = 1;
 	      
-		      gdk_error_trap_push ();
+		      gdk_x11_display_error_trap_push(data->display);
 	      
 		      if (data->hot_keycode) {
-			      XIGrabKeycode( GDK_DISPLAY_XDISPLAY(data->display),
-					     kbd_dev_id,
-					     data->hot_keycode,
-					     GDK_WINDOW_XID(data->root),
-					     GrabModeAsync,
-					     GrabModeAsync,
-					     True,
-					     &mask,
-					     nmods,
-					     modifiers);
+			  if(XIGrabKeycode(GDK_DISPLAY_XDISPLAY(data->display),
+					   kbd_dev_id,
+					   data->hot_keycode,
+					   GDK_WINDOW_XID(data->root),
+					   GrabModeAsync,
+					   GrabModeAsync,
+					   True,
+					   &mask,
+					   nmods,
+					   modifiers) != 0) {
+			      g_printerr("ERROR: Grabbing hotkey from keyboard device %d failed.\n", kbd_dev_id);
+			      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(data->win),
+									 GTK_DIALOG_DESTROY_WITH_PARENT,
+									 GTK_MESSAGE_ERROR,
+									  GTK_BUTTONS_CLOSE,
+									 "Grabbing hotkey %s from keyboard %d failed. The drawing hotkey function will not work unless configured to use another key.",
+									 data->hot_keyval,
+									 kbd_dev_id);
+			      gtk_dialog_run (GTK_DIALOG (dialog));
+			      gtk_widget_destroy (dialog);
+
+			  }
 		      }
 
 		      if (data->undo_keycode) {
-			      XIGrabKeycode( GDK_DISPLAY_XDISPLAY(data->display),
-					     kbd_dev_id,
-					     data->undo_keycode,
-					     GDK_WINDOW_XID(data->root),
-					     GrabModeAsync,
-					     GrabModeAsync,
-					     True,
-					     &mask,
-					     nmods,
-					     modifiers);
+			  if(XIGrabKeycode(GDK_DISPLAY_XDISPLAY(data->display),
+					   kbd_dev_id,
+					   data->undo_keycode,
+					   GDK_WINDOW_XID(data->root),
+					   GrabModeAsync,
+					   GrabModeAsync,
+					   True,
+					   &mask,
+					   nmods,
+					   modifiers) != 0) {
+			      g_printerr("ERROR: Grabbing undo key from keyboard device %d failed.\n", kbd_dev_id);
+			      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(data->win),
+									 GTK_DIALOG_DESTROY_WITH_PARENT,
+									 GTK_MESSAGE_ERROR,
+									  GTK_BUTTONS_CLOSE,
+									 "Grabbing undo key %s from keyboard %d failed. The undo hotkey function will not work unless configured to use another key.",
+									 data->undo_keyval,
+									 kbd_dev_id);
+			      gtk_dialog_run (GTK_DIALOG (dialog));
+			      gtk_widget_destroy (dialog);
+			  }
 		      }
 
 		      XSync(GDK_DISPLAY_XDISPLAY(data->display), False);
-		      if(gdk_error_trap_pop())
+		      if(gdk_x11_display_error_trap_pop(data->display))
 			  {
-			      g_printerr("ERROR: Grabbing hotkey from keyboard device %d failed.\n",
+			      g_printerr("ERROR: Grabbing keys from keyboard device %d failed due to X11 error.\n",
 					 kbd_dev_id);
 			      g_free(devdata);
 			      continue;
@@ -174,10 +197,10 @@ void release_grab (GromitData *data,
           devdata = value;
           if(devdata->is_grabbed)
 	  {
-	    gdk_error_trap_push();
+	    gdk_x11_display_error_trap_push(data->display);
 	    gdk_device_ungrab(devdata->device, GDK_CURRENT_TIME);
 	    XSync(GDK_DISPLAY_XDISPLAY(data->display), False);
-	    if(gdk_error_trap_pop())
+	    if(gdk_x11_display_error_trap_pop(data->display))
 	      g_printerr("WARNING: Ungrabbing device '%s' failed.\n", gdk_device_get_name(devdata->device));
 
 	    devdata->is_grabbed = 0;
