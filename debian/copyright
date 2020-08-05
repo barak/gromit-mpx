@@ -2,17 +2,17 @@ Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: gromit-mpx
 Upstream-Contact: Christian Beier <dontmind@freeshell.org>
 Source: https://github.com/bk138/gromit-mpx
-	git://github.com/bk138/gromit-mpx
+        git://github.com/bk138/gromit-mpx
 License: GPL-2+
 
 Files: *
 Copyright: 2000 Simon Budig <Simon.Budig@unix-ag.org>
-	   2009, 2010 Christian Beier <dontmind@freeshell.org>
+           2009, 2010 Christian Beier <dontmind@freeshell.org>
 License: GPL-2+
 
 Files: debian/*
 Copyright: 2010, 2011 Christian Beier <dontmind@freeshell.org>
-	   2013 Barak A. Pearlmutter <bap@debian.org>
+           2013 Barak A. Pearlmutter <bap@debian.org>
 License: GPL-2+
 
 License: GPL-2+
