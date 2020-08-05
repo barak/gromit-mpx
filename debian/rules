@@ -5,7 +5,6 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 %:
 	dh $@
 
-override_dh_auto_install:
-	dh_auto_install
+execute_after_dh_auto_install:
 	@echo "Installed later under different name by dh_installchangelogs:"
 	-rm --verbose debian/gromit-mpx/usr/share/doc/gromit-mpx/ChangeLog
