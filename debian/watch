@@ -1,3 +1,2 @@
-version=3
-
-https://github.com/bk138/gromit-mpx/tags (?:.*/)?v?(\d[\d\.]*)\.tar\.gz
+version=4
+https://github.com/bk138/@PACKAGE@/tags (?:.*/)?v?@ANY_VERSION@@ARCHIVE_EXT@
