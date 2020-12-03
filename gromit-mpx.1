@@ -85,6 +85,9 @@ will change the key used to undo/redo strokes. Under rare circumstances
 identifying the key with the keysym can fail. You can then use the keycode
 to specify the key uniquely. To determine the keycode for different keys you
 can use the \fBxev\fP(1) command.
+.TP
+.B \-V, \-\-version
+will show the Gromit-MPX version.
 .SH OPTIONS (CONTROL)
 A sort summary of the available commandline arguments to control an already
 running Gromit-MPX process, see above for the options available to start Gromit-MPX.
@@ -108,15 +111,19 @@ will redo the last undone drawing stroke.
 will undo the last drawing stroke.
 .SH ENVIRONMENT
 .TP
-.B GDK_BACKEND
-Set to force use of a particular backend, valid values are
-.I x11
-or
-.IR wayland .
+.B XDG_CURRENT_DESKTOP
+Gromit-MPX uses this to determine which desktop environment it is running on.
+.TP
+.B XDG_CURRENT_SESSION
+Gromit-MPX uses this to determine whether is is running under X11 or Wayland.
 .TP
 .B XDG_CONFIG_HOME
 Directory to search for user's custom configuration file, defaults to
 .BI ~ /.config/ .
+.TP
+.B GDK_CORE_DEVICE_EVENTS
+If set, GDK does not use the XInput extension and only reacts to core X input events.
+This renders Gromit-MPX unusable, it will detect this and bail out with an error message.
 .SH FILES
 .TP
 .I gromit\-mpx.cfg
@@ -132,9 +139,15 @@ thin lines. It makes heavy use of the shape extension, which is
 quite expensive if you paint a complex pattern on screen. Especially
 terminal-programs tend to scroll incredibly slow if something is
 painted over their window.
+
+XFCE per default grabs Ctrl-F1 to Ctrl-F12 (switch to workspace 1-12)
+and Alt-F9 (minimize window) which renders Gromit-MPX's default hotkey
+mapping unusable. Gromit-MPX detects XFCE and changes the default hotkeys
+to Home and End. Those can can still be overridden by the user.
+
 .SH AUTHORS
 Simon Budig <simon@gimp.org>
-Christian Beier <dontmind@freeshell.org>
+Christian Beier <info@christianbeier.net>
 .PP
 This manual page was written by Pierre Chifflier <chifflier@cpe.fr> and
 Simon Budig for the original Gromit and extended for Gromit-MPX by

@@ -93,6 +93,9 @@ gboolean on_toggle_paint(GtkWidget *widget,
 			 GdkEventButton  *ev,
 			 gpointer   user_data);
 
+void on_toggle_paint_all (GtkMenuItem *menuitem,
+			  gpointer     user_data);
+
 void on_clear (GtkMenuItem *menuitem,
 	       gpointer     user_data);
 
@@ -122,5 +125,14 @@ void on_about(GtkMenuItem *menuitem,
 
 void on_intro(GtkMenuItem *menuitem,
 	      gpointer user_data);
+
+void on_support_liberapay(GtkMenuItem *menuitem,
+			  gpointer user_data);
+
+void on_support_patreon(GtkMenuItem *menuitem,
+			gpointer user_data);
+
+void on_support_paypal(GtkMenuItem *menuitem,
+		       gpointer user_data);
 
 #endif

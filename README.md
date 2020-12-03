@@ -6,31 +6,38 @@
 [![Donate](https://img.shields.io/badge/paypal-donate-yellow.png)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=N7GSSPRPUSTPU&source=url)
 [![Gitter](https://badges.gitter.im/gromit-mpx/community.svg)](https://gitter.im/gromit-mpx/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
-Gromit-MPX is a multi-pointer port of the original [Gromit annotation
-tool](http://www.home.unix-ag.org/simon/gromit) by [Simon
-Budig](mailto:simon@budig.de).
-
-It enables graphical annotations with several pointers at once and is
-A **lot** faster since it uses the XCOMPOSITE extension where
-available.  Also, it does not inhibit Drag-and-Drop like the original
-Gromit tool.
-
-If you already used Gromit-MPX, you probably want to read [NEWS](NEWS.md).
-
-## What it is
-
-Gromit-MPX (GRaphics Over MIscellaneous Things) is a small tool to
-make annotations on the screen.
+Gromit-MPX is an on-screen annotation tool that works with any Unix
+desktop environment under X11 as well as Wayland.
 
 Its main use is for making presentations of some application.
 Normally, you would have to move the mouse pointer around the point of
 interest until hopefully everybody noticed it.  With Gromit-MPX, you
 can draw everywhere onto the screen, highlighting some button or area.
 
-Similar tools for MS-Windows include *DemoHelper* (GPLv2 also), or
-proprietary tools like *ZoomIt* and *ScreenMarker*.  For Compiz, there
-is also the *Annotate* plugin, and the much-flashier *Firepaint (paint
-fire on screen)* plugin.
+Key features include:
+
+  * **Desktop-independent**. Gromit-MPX works with GNOME, KDE, XFCE, ...
+	under X11 as well as with a Wayland session.
+  * **Hotkey-based**. The fundamental philosophy is that Gromit-MPX does not
+    get into your way of doing things by sticking some UI widget on your
+	desktop, potentially obscuring more important contents. It *does*
+	provide a UI, but only in form of a tray icon.
+  * **Configurable**. While Gromit-MPX comes with a default config, you are
+	free to change key bindings as well as drawing tool configuration.
+  * **Multi-Pointer**. Under X11, it enables graphical annotations with
+	several pointers at once or a dedicated annotation device setup where
+	you can use a second pair of input devices to annotate while
+	simultaneously continuing to work normally with the first pair.
+  * **Fast**. Where available, Gromit-MPX makes use of Compositing. This
+	should be the case on any contemporary desktop environment making use
+	of the XCOMPOSITE extension under X11 and with every Wayland-based session.
+
+The name stands for (*GR*aphics *O*ver *MI*scellaneous *T*hings -
+*M*ulti-*P*ointer-E*X*tension). It is a multi-pointer port of the original
+[Gromit annotation tool](http://www.home.unix-ag.org/simon/gromit) by [Simon
+Budig](mailto:simon@budig.de).
+
+If you already used Gromit-MPX, you probably want to read [NEWS](NEWS.md).
 
 ## How to use it
 
@@ -50,12 +57,13 @@ commands are:
     F8:       undo last stroke
     SHIFT-F8: redo last undone stroke
 
-You can specify the keys to grab via:
+You can specify the keys to grab as hotkeys via:
 
     gromit-mpx --key <keysym> --undo-key <keysym>
 
-Specifying an empty string or `none` for the keysym will prevent gromit
-from grabbing a key.
+Note that you can only specify single keysyms, not key combos. Specifying
+an empty string or `none` for the keysym will prevent Gromit-MPX from
+grabbing a key.
 
 You can specify the opacity simply via:
 
@@ -184,7 +192,7 @@ drawing for all others by assigning a zero-width tool like this:
 The decision which tool to use follows a simple policy:
 
 1. Buttons are more important than Modifiers
-2. Low number Buttons are more important than higher ones
+2. High number Buttons are more important than lower ones
 3. Modifiers: `SHIFT` > `CONTROL` > `ALT`/`META`.
 4. Gromit-MPX tries partial matches:
       If you define `"Core Pointer"[]` and `"Core Pointer"[SHIFT, CONTROL]`
@@ -194,8 +202,25 @@ The decision which tool to use follows a simple policy:
 5. Slave device config takes precedence over master device config, which
    in turn takes precedence over the fallback default config.
    
-You can also change the [hotkeys from the config](data/gromit-mpx.cfg#L5) file by setting the respective
-`HOTKEY` and/or `UNDOKEY` values.
+For versions > 1.3, you can also change the [hotkeys from the config](data/gromit-mpx.cfg#L5)
+file by setting the respective `HOTKEY` and/or `UNDOKEY` values.
+
+### Autostart
+
+If you want to have Gromit-MPX autostarted for your desktop session, the
+safest way to do so is via the XDG autostart facility:
+
+Simply create a file `~/.config/autostart/gromit-mpx.desktop` with the
+following contents:
+
+```
+[Desktop Entry]
+Type=Application
+Exec=gromit-mpx
+```
+
+You can freely add command line arguments to the 'Exec' stanza, configuring
+the autostarted instance to your needs.
 
 ## Building it
 
@@ -210,16 +235,31 @@ from the root of the source tree.
 
 ## Potential Problems
 
-When there is no compositing manager such as Compiz or xcompmgr
-running, Gromit-MPX falls back to a legacy drawing mode. This may
+XFCE per default grabs Ctrl-F1 to Ctrl-F12 (switch to workspace 1-12)
+and Alt-F9 (minimize window) which renders Gromit-MPX's default hotkey
+mapping unusable. Gromit-MPX detects XFCE and changes the default hotkeys
+to Home and End. Those can can still be overridden by the user.
+
+When there is no [compositing manager](https://en.wikipedia.org/wiki/Compositing_window_manager)
+such as Mutter or KWin running, Gromit-MPX falls back to a legacy drawing mode. This may
 drastically slow down your X-Server, especially when you draw very
 thin lines. It makes heavy use of the shape extension, which is
 quite expensive if you paint a complex pattern on screen. Especially
 terminal-programs tend to scroll incredibly slow if something is
 painted over their window.
 
+## Similar Tools
+
+In the Unix-world, similar but different tools are *Ardesia*, *Pylote*
+and *Draw On You Screen*.
+
+Similar tools for MS-Windows include *DemoHelper* (GPLv2 also), or
+proprietary tools like *ZoomIt*, *ScreenMarker* or *EpicPen*.
+
+## License
+
 Like the original Gromit, this program is distributed under the Gnu
 General Public License.  See the file `COPYING` for details.  Thanks
 to Simon for the groundwork done!
 
----[Christian Beier](mailto:dontmind@freeshell.org)
+---[Christian Beier](mailto:gromit-mpx@christianbeier.net)

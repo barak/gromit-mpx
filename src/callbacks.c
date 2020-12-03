@@ -239,13 +239,21 @@ gboolean on_buttonpress (GtkWidget *win,
   GromitDeviceData *devdata = g_hash_table_lookup(data->devdatatable, ev->device);
 
   if(data->debug)
-    g_printerr("DEBUG: Device '%s': Button %i Down at (x,y)=(%.2f : %.2f)\n", 
-	       gdk_device_get_name(ev->device), ev->button, ev->x, ev->y);
+    g_printerr("DEBUG: Device '%s': Button %i Down State %d at (x,y)=(%.2f : %.2f)\n",
+	       gdk_device_get_name(ev->device), ev->button, ev->state, ev->x, ev->y);
 
   if (!devdata->is_grabbed)
     return FALSE;
 
- 
+  if (gdk_device_get_source(gdk_event_get_source_device((GdkEvent *)ev)) == GDK_SOURCE_PEN) {
+      /* Do not drop unprocessed motion events. Smoother drawing for pens of tablets. */
+      gdk_window_set_event_compression(gtk_widget_get_window(data->win), FALSE);
+  } else {
+      /* For all other source types, set back to default. Otherwise, lines were only
+	 fully drawn to the end on button release. */
+      gdk_window_set_event_compression(gtk_widget_get_window(data->win), TRUE);
+  }
+
   /* See GdkModifierType. Am I fixing a Gtk misbehaviour???  */
   ev->state |= 1 << (ev->button + 7);
 
@@ -530,6 +538,14 @@ gboolean on_toggle_paint(GtkWidget *widget,
     return TRUE;
 }
 
+void on_toggle_paint_all (GtkMenuItem *menuitem,
+			  gpointer     user_data)
+{
+  GromitData *data = (GromitData *) user_data;
+  toggle_grab(data, NULL);
+}
+
+
 void on_clear (GtkMenuItem *menuitem,
 	       gpointer     user_data)
 {
@@ -614,16 +630,17 @@ void on_about(GtkMenuItem *menuitem,
                                 "Tobias Schönberg <tobias47n9e@gmail.com>",
                                 "Yuri D'Elia <yuri.delia@eurac.edu>",
 				"Julián Unrrein <junrrein@gmail.com>",
+				"Eshant Gupta <guptaeshant@gmail.com>",
                                  NULL };
     gtk_show_about_dialog (NULL,
 			   "program-name", "Gromit-MPX",
 			   "logo-icon-name", "gromit-mpx",
 			   "title", "About Gromit-MPX",
-			   "comments", "Gromit-MPX (GRaphics Over MIscellaneous Things) is a small tool to make annotations on the screen. Gromit-MPX is a multi-pointer port of the original Gromit annotation tool by Simon Budig.",
+			   "comments", "Gromit-MPX (GRaphics Over MIscellaneous Things - Multi-Pointer-EXtension) is an on-screen annotation tool that works with any Unix desktop environment under X11 as well as Wayland.",
 			   "version", VERSION,
 			   "website", "https://github.com/bk138/gromit-mpx",
 			   "authors", authors,
-			   "copyright", "Copyright 2000 Simon Budig, 2009-2020 Christian Beier",
+			   "copyright", "2009-2020 Christian Beier, Copyright 2000 Simon Budig",
 			   "license-type", GTK_LICENSE_GPL_2_0,
 			   NULL);
 }
@@ -652,7 +669,7 @@ void on_intro(GtkMenuItem *menuitem,
 					  "everywhere onto the screen, highlighting some button or area.\n\n"
                                           "If you happen to enjoy using Gromit-MPX, please consider supporting\n"
 					  "its development by using one of the donation options on the project's\n"
-					  "website.");
+					  "website or directly via the support options available from the tray menu.\n");
     gtk_assistant_append_page (GTK_ASSISTANT (assistant), widgetOne);
     gtk_assistant_set_page_title (GTK_ASSISTANT (assistant), widgetOne, "Gromit-MPX - What is it?");
     gtk_assistant_set_page_type (GTK_ASSISTANT (assistant), widgetOne, GTK_ASSISTANT_PAGE_INTRO);
@@ -704,4 +721,31 @@ void on_intro(GtkMenuItem *menuitem,
 
     // show
     gtk_widget_show_all (assistant);
+}
+
+void on_support_liberapay(GtkMenuItem *menuitem, gpointer user_data)
+{
+    gtk_show_uri_on_window (NULL,
+			    "https://liberapay.com/bk138",
+			    GDK_CURRENT_TIME,
+			    NULL);
+
+}
+
+void on_support_patreon(GtkMenuItem *menuitem, gpointer user_data)
+{
+    gtk_show_uri_on_window (NULL,
+			    "https://patreon.com/bk138",
+			    GDK_CURRENT_TIME,
+			    NULL);
+
+}
+
+void on_support_paypal(GtkMenuItem *menuitem, gpointer user_data)
+{
+    gtk_show_uri_on_window (NULL,
+			    "https://www.paypal.com/donate?hosted_button_id=N7GSSPRPUSTPU",
+			    GDK_CURRENT_TIME,
+			    NULL);
+
 }

@@ -354,13 +354,28 @@ void select_tool (GromitData *data,
       default_name [default_len] = 124;
       default_name [default_len+3] = 0;
 
-      /*  0, 1, 3, 7, 15, 31 */
+      /*
+	Iterate i up until <= req_buttons.
+	For each i, find out if bits of i are _all_ in `req_buttons`.
+	- If yes, lookup if there is tool and select if there is.
+	- If no, try next i, no tool lookup.
+      */
       context = NULL;
       i=-1;
       do
         {
           i++;
-          buttons = req_buttons & ((1 << i)-1);
+
+	  /*
+	    For all i > 0, find out if _all_ bits representing the iterator 'i'
+	    are present in req_buttons as well. If not (none or only some are),
+	    then go on.
+	    The condition i==0 handles the config cases where no button is given.
+	  */
+	  buttons = i & req_buttons;
+	  if(i > 0 && (buttons == 0 || buttons != i))
+	      continue;
+
           j=-1;
           do
             {
@@ -403,7 +418,7 @@ void select_tool (GromitData *data,
             }
           while (j<=3 && req_modifier >= (1u << j));
         }
-      while (i<=5 && req_buttons >= (1u << i));
+      while (i < req_buttons);
 
       g_free (name);
       g_free (default_name);
@@ -414,6 +429,9 @@ void select_tool (GromitData *data,
             devdata->cur_context = data->default_eraser;
           else
             devdata->cur_context = data->default_pen;
+
+	  if(data->debug)
+	      g_printerr("DEBUG: select_tool set fallback context for '%s'\n", name);
         }
     }
   else
@@ -673,6 +691,13 @@ void main_do_event (GdkEventAny *event,
 
 void setup_main_app (GromitData *data, gboolean activate)
 {
+
+  if(getenv("GDK_CORE_DEVICE_EVENTS")) {
+      g_printerr("GDK is set to not use the XInput extension, Gromit-MPX can not work this way.\n"
+		 "Probably the GDK_CORE_DEVICE_EVENTS environment variable is set, try to start Gromit-MPX with this variable unset.\n");
+      exit(1);
+  }
+
   /* COLOURS */
   g_free(data->white);
   g_free(data->black);
@@ -800,6 +825,9 @@ void setup_main_app (GromitData *data, gboolean activate)
   */
   read_keyfile(data);
 
+  // might have been in key file
+  gtk_widget_set_opacity(data->win, data->opacity);
+
   /* 
      FIND HOTKEY KEYCODE 
   */
@@ -920,6 +948,7 @@ void setup_main_app (GromitData *data, gboolean activate)
 
   GtkWidget* sep_item = gtk_separator_menu_item_new();
   GtkWidget* intro_item = gtk_menu_item_new_with_mnemonic("_Introduction");
+  GtkWidget* support_item = gtk_menu_item_new_with_mnemonic("_Support Gromit-MPX");
   GtkWidget* about_item = gtk_menu_item_new_with_mnemonic("_About");
   snprintf(labelBuf, sizeof(labelBuf), "_Quit (ALT-%s)", data->hot_keyval);
   GtkWidget* quit_item = gtk_menu_item_new_with_mnemonic(labelBuf);
@@ -938,14 +967,22 @@ void setup_main_app (GromitData *data, gboolean activate)
 
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), sep_item);
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), intro_item);
+  gtk_menu_shell_append (GTK_MENU_SHELL (menu), support_item);
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), about_item);
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), quit_item);
 
 
   /* Attach the callback functions to the respective activate signal */
-  g_signal_connect(toggle_paint_item, "button-press-event",
-		   G_CALLBACK(on_toggle_paint),
-		   data);
+  char *desktop = getenv("XDG_CURRENT_DESKTOP");
+  if (desktop && strcmp(desktop, "KDE") == 0) {
+      // KDE does not handle the device-specific "button-press-event" from a menu
+      g_signal_connect(G_OBJECT (toggle_paint_item), "activate",
+		       G_CALLBACK (on_toggle_paint_all),
+		       data);
+  } else {
+      g_signal_connect(toggle_paint_item, "button-press-event",
+		       G_CALLBACK(on_toggle_paint), data);
+  }
   g_signal_connect(G_OBJECT (clear_item), "activate",
 		   G_CALLBACK (on_clear),
 		   data);
@@ -995,11 +1032,41 @@ void setup_main_app (GromitData *data, gboolean activate)
 
   gtk_widget_show (sep_item);
   gtk_widget_show (intro_item);
+  gtk_widget_show (support_item);
   gtk_widget_show (about_item);
   gtk_widget_show (quit_item);
 
 
   app_indicator_set_menu (data->trayicon, GTK_MENU(menu));
+
+  /*
+    Build the support menu
+   */
+  GtkWidget *support_menu = gtk_menu_new ();
+  gtk_menu_item_set_submenu(GTK_MENU_ITEM(support_item), support_menu);
+
+  GtkWidget* support_liberapay_item = gtk_menu_item_new_with_label("Via LiberaPay");
+  GtkWidget* support_patreon_item = gtk_menu_item_new_with_label("Via Patreon");
+  GtkWidget* support_paypal_item = gtk_menu_item_new_with_label("Via PayPal");
+
+  gtk_menu_shell_append (GTK_MENU_SHELL (support_menu), support_liberapay_item);
+  gtk_menu_shell_append (GTK_MENU_SHELL (support_menu), support_patreon_item);
+  gtk_menu_shell_append (GTK_MENU_SHELL (support_menu), support_paypal_item);
+
+  g_signal_connect(G_OBJECT (support_liberapay_item), "activate",
+		   G_CALLBACK (on_support_liberapay),
+		   data);
+  g_signal_connect(G_OBJECT (support_patreon_item), "activate",
+		   G_CALLBACK (on_support_patreon),
+		   data);
+  g_signal_connect(G_OBJECT (support_paypal_item), "activate",
+		   G_CALLBACK (on_support_paypal),
+		   data);
+
+  gtk_widget_show(support_liberapay_item);
+  gtk_widget_show(support_patreon_item);
+  gtk_widget_show(support_paypal_item);
+
 
   if(data->show_intro_on_startup)
       on_intro(NULL, data);
@@ -1024,6 +1091,18 @@ int app_parse_args (int argc, char **argv, GromitData *data)
 
    data->undo_keyval = DEFAULT_UNDOKEY;
    data->undo_keycode = 0;
+
+   char *xdg_current_desktop = getenv("XDG_CURRENT_DESKTOP");
+   if (xdg_current_desktop && strcmp(xdg_current_desktop, "XFCE") == 0) {
+       /*
+	 XFCE per default grabs Ctrl-F1 to Ctrl-F12 (switch to workspace 1-12)
+	 and Alt-F9 (minimize window) which renders Gromit-MPX's default hotkey
+	 mapping unusable. Provide different defaults for that desktop environment.
+       */
+       data->hot_keyval = DEFAULT_HOTKEY_XFCE;
+       data->undo_keyval = DEFAULT_UNDOKEY_XFCE;
+       g_print("Detected XFCE, changing default hot keys to '" DEFAULT_HOTKEY_XFCE "' and '" DEFAULT_UNDOKEY_XFCE "'\n");
+   }
 
    for (i=1; i < argc ; i++)
      {
@@ -1113,6 +1192,12 @@ int app_parse_args (int argc, char **argv, GromitData *data)
                g_printerr ("-U requires an keycode > 0 as argument\n");
                wrong_arg = TRUE;
              }
+         }
+       else if (strcmp (arg, "-V") == 0 ||
+		strcmp (arg, "--version") == 0)
+         {
+	     g_print("Gromit-MPX " VERSION "\n");
+	     exit(0);
          }
        else
          {
@@ -1220,6 +1305,11 @@ int main (int argc, char **argv)
 {
   GromitData *data;
 
+  /*
+      we run okay under XWayland, but not native Wayland
+  */
+  gdk_set_allowed_backends ("x11");
+
   gtk_init (&argc, &argv);
   data = g_malloc0(sizeof (GromitData));
 
@@ -1286,9 +1376,16 @@ int main (int argc, char **argv)
   /* Main application */
   setup_main_app (data, app_parse_args (argc, argv, data));
   gtk_main ();
-  release_grab(data, NULL); /* ungrab all */
+  shutdown_input_devices(data);
   write_keyfile(data); // save keyfile config
   g_free (data);
   return 0;
 }
 
+void indicate_active(GromitData *data, gboolean YESNO)
+{
+    if(YESNO)
+	app_indicator_set_icon(data->trayicon, "gromit-mpx_active");
+    else
+	app_indicator_set_icon(data->trayicon, PACKAGE_NAME);
+}
