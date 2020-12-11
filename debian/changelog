@@ -1,3 +1,10 @@
+gromit-mpx (1.4-2) unstable; urgency=medium
+
+  * switch from deprecated libappindicator3-dev to
+    libayatana-appindicator3-dev (closes: #956769)
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Fri, 11 Dec 2020 12:42:56 +0000
+
 gromit-mpx (1.4-1) unstable; urgency=medium
 
   * Tweak debian/watch uscan support file
