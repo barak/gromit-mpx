@@ -6,6 +6,8 @@
 [![Donate](https://img.shields.io/badge/paypal-donate-yellow.png)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=N7GSSPRPUSTPU&source=url)
 [![Gitter](https://badges.gitter.im/gromit-mpx/community.svg)](https://gitter.im/gromit-mpx/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
+[<img src="https://flathub.org/assets/badges/flathub-badge-i-en.png" width="190px" />](https://flathub.org/apps/details/net.christianbeier.Gromit-MPX)
+
 Gromit-MPX is an on-screen annotation tool that works with any Unix
 desktop environment under X11 as well as Wayland.
 
@@ -13,6 +15,8 @@ Its main use is for making presentations of some application.
 Normally, you would have to move the mouse pointer around the point of
 interest until hopefully everybody noticed it.  With Gromit-MPX, you
 can draw everywhere onto the screen, highlighting some button or area.
+
+<img src="https://github.com/bk138/gromit-mpx/blob/master/data/on-gnome-wayland.png" width="75%" />
 
 Key features include:
 
