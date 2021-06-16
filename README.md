@@ -21,7 +21,7 @@ can draw everywhere onto the screen, highlighting some button or area.
 Key features include:
 
   * **Desktop-independent**. Gromit-MPX works with GNOME, KDE, XFCE, ...
-	under X11 as well as with a Wayland session.
+	under X11 as well as with a Wayland session using XWayland.
   * **Hotkey-based**. The fundamental philosophy is that Gromit-MPX does not
     get into your way of doing things by sticking some UI widget on your
 	desktop, potentially obscuring more important contents. It *does*
@@ -128,10 +128,11 @@ MPX setup.
 ### Configuration
 
 Gromit-MPX is configurable via the file `gromit-mpx.cfg` in the
-directory defined by `$XDG_CONFIG_HOME` (usually `~/.config`).  Here
-you can specify which Device/Button/Modifier combination invokes which
-tool.  See the copy of `gromit-mpx.cfg` distributed with this program
-for an example.  An overview on the syntax:
+directory defined by `$XDG_CONFIG_HOME` (usually `~/.config` or
+`~/.var/app/net.christianbeier.Gromit-MPX/config/` if you installed
+the Flatpak). Here you can specify which Device/Button/Modifier
+combination invokes which tool. See the copy of `gromit-mpx.cfg`
+distributed with this program for an example. An overview on the syntax:
 
     # Comments can be either # Shell-Style or
     /* C-Style. */
@@ -152,6 +153,15 @@ If you want another minimum size instead of the default 1, add `minsize`
 like this:
 
 	"red Marker" = "red Pen" (minsize=14);
+
+You can set a maximum size as well:
+
+	"red Marker" = "red Pen" (maxsize=20);
+
+Both `minsize` and `maxsize` can be combined to define a tool that's
+not allowed to change size:
+
+	"red fixed Marker" = "red Pen" (minsize=10 maxsize=10);
 
 You can also draw lines that end in an arrow head. For this you
 have to specify `arrowsize`. This is a factor relative to the width
@@ -223,8 +233,10 @@ Type=Application
 Exec=gromit-mpx
 ```
 
-You can freely add command line arguments to the 'Exec' stanza, configuring
-the autostarted instance to your needs.
+If you have the Flatpak installed, the last line needs to start with
+`Exec=flatpak run net.christianbeier.Gromit-MPX`. You can freely add
+command line arguments to the 'Exec' stanza, configuring the autostarted
+instance to your needs.
 
 ## Building it
 
@@ -251,6 +263,10 @@ thin lines. It makes heavy use of the shape extension, which is
 quite expensive if you paint a complex pattern on screen. Especially
 terminal-programs tend to scroll incredibly slow if something is
 painted over their window.
+
+If Gromit-MPX under Wayland complains about "cannot open display", make
+sure you have XWayland runnning or its autostart configured. Gromit-MPX
+needs XWayland when running in a Wayland session.
 
 ## Similar Tools
 
