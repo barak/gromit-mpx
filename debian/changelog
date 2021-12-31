@@ -2,8 +2,10 @@ gromit-mpx (1.4-3) unstable; urgency=medium
 
   * track upstream changes
   * remove now-unnecessary library patch
+  * metadata file is under CC-BY-4.0 license
+  * bump policy
 
- -- Barak A. Pearlmutter <bap@debian.org>  Tue, 04 May 2021 14:59:51 +0100
+ -- Barak A. Pearlmutter <bap@debian.org>  Fri, 31 Dec 2021 17:55:50 +0000
 
 gromit-mpx (1.4-2) unstable; urgency=medium
 
