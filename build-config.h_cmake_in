@@ -1,8 +1,20 @@
 #ifndef BUILD_CONFIG_H
 #define BUILD_CONFIG_H
 
+/* Name of package */
+#define PACKAGE "gromit-mpx"
+
+/* Define to the address where bug reports for this package should be sent. */
+#define PACKAGE_BUGREPORT "Christian Beier <dontmind@freeshell.org>"
+
 /* Define to the full name of this package. */
 #define PACKAGE_NAME "gromit-mpx"
+
+/* Define to the full name and version of this package. */
+#define PACKAGE_STRING "gromit-mpx ${version}"
+
+/* Define to the one symbol short name of this package. */
+#define PACKAGE_TARNAME "gromit-mpx"
 
 /* Define to the home page for this package. */
 #define PACKAGE_URL "https://github.com/bk138/gromit-mpx"
@@ -10,11 +22,11 @@
 /* Define to the version of this package. */
 #define PACKAGE_VERSION "${version}"
 
-/* The package's locale domain. */
-#define PACKAGE_LOCALE_DOMAIN "${LOCALE_DOMAIN}"
+/* Define to 1 if you have the ANSI C header files. */
+#define STDC_HEADERS 1
 
-/* The directory where the package's translations reside. */
-#define PACKAGE_LOCALE_DIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/locale"
+/* Version number of package */
+#define VERSION "${version}"
 
 #define SYSCONFDIR "${CMAKE_INSTALL_FULL_SYSCONFDIR}"
 

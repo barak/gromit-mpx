@@ -24,17 +24,12 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include "main.h"
+#include "gromit-mpx.h"
 
 /* fallback device name for config file */
 #define DEFAULT_DEVICE_NAME "default"
 
-/**
-   Select and parse system or user .cfg file.
-   Returns TRUE if something got parsed successfully, FALSE otherwise.
-*/
-gboolean parse_config (GromitData *data);
-int parse_args (int argc, char **argv, GromitData *data);
+void parse_config (GromitData *data);
 
 /* fallback hot key, if not specified on command line or in config file */
 #ifndef DEFAULT_HOTKEY

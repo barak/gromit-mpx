@@ -20,13 +20,12 @@
  *
  */
 
-#ifndef GROMIT_MPX_MAIN_H
-#define GROMIT_MPX_MAIN_H
+#ifndef GROMIT_MPX_H
+#define GROMIT_MPX_H
 
 #include "build-config.h"
 
 #include <glib.h>
-#include <glib/gi18n.h>
 #include <gdk/gdk.h>
 #include <gtk/gtk.h>
 #ifdef APPINDICATOR_IS_LEGACY
@@ -72,11 +71,17 @@ typedef struct
   guint           width;
   gfloat          arrowsize;
   guint           minwidth;
-  guint           maxwidth;
   GdkRGBA         *paint_color;
   cairo_t         *paint_ctx;
   gdouble         pressure;
 } GromitPaintContext;
+
+typedef struct
+{
+  gint x;
+  gint y;
+  gint width;
+} GromitStrokeCoordinate;
 
 typedef struct
 {
@@ -161,11 +166,22 @@ void snap_undo_state (GromitData *data);
 void undo_drawing (GromitData *data);
 void redo_drawing (GromitData *data);
 
+void draw_line (GromitData *data, GdkDevice *dev, gint x1, gint y1, gint x2, gint y2);
+void draw_arrow (GromitData *data, GdkDevice *dev, gint x1, gint y1, gint width, gfloat direction);
 void clear_screen (GromitData *data);
+
+gboolean coord_list_get_arrow_param (GromitData *data,
+					    GdkDevice  *dev,
+					    gint        search_radius,
+					    gint       *ret_width,
+					    gfloat     *ret_direction);
+void coord_list_prepend (GromitData *data, GdkDevice* dev, gint x, gint y, gint width);
+void coord_list_free (GromitData *data, GdkDevice* dev);
+
 
 GromitPaintContext *paint_context_new (GromitData *data, GromitPaintType type,
 				       GdkRGBA *fg_color, guint width, guint arrowsize,
-                                       guint minwidth, guint maxwidth);
+                                       guint minwidth);
 void paint_context_free (GromitPaintContext *context);
 
 void indicate_active(GromitData *data, gboolean YESNO);

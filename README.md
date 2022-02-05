@@ -6,8 +6,6 @@
 [![Donate](https://img.shields.io/badge/paypal-donate-yellow.png)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=N7GSSPRPUSTPU&source=url)
 [![Gitter](https://badges.gitter.im/gromit-mpx/community.svg)](https://gitter.im/gromit-mpx/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
-[<img src="https://flathub.org/assets/badges/flathub-badge-i-en.png" width="190px" />](https://flathub.org/apps/details/net.christianbeier.Gromit-MPX)
-
 Gromit-MPX is an on-screen annotation tool that works with any Unix
 desktop environment under X11 as well as Wayland.
 
@@ -16,12 +14,10 @@ Normally, you would have to move the mouse pointer around the point of
 interest until hopefully everybody noticed it.  With Gromit-MPX, you
 can draw everywhere onto the screen, highlighting some button or area.
 
-<img src="https://github.com/bk138/gromit-mpx/blob/master/data/on-gnome-wayland.png" width="75%" />
-
 Key features include:
 
   * **Desktop-independent**. Gromit-MPX works with GNOME, KDE, XFCE, ...
-	under X11 as well as with a Wayland session using XWayland.
+	under X11 as well as with a Wayland session.
   * **Hotkey-based**. The fundamental philosophy is that Gromit-MPX does not
     get into your way of doing things by sticking some UI widget on your
 	desktop, potentially obscuring more important contents. It *does*
@@ -71,10 +67,7 @@ grabbing a key.
 
 You can specify the opacity simply via:
 
-    gromit-mpx -o <opacity as real value in [0,1]>
-
-As opacity is not a tool but a canvas property, it is not configured via
-`gromit-mpx.cfg` but remembered over restarts.
+    gromit-mpx -o <opacity>
 
 Alternatively you can invoke Gromit-MPX with various arguments to
 control an already running Gromit-MPX .
@@ -131,11 +124,10 @@ MPX setup.
 ### Configuration
 
 Gromit-MPX is configurable via the file `gromit-mpx.cfg` in the
-directory defined by `$XDG_CONFIG_HOME` (usually `~/.config` or
-`~/.var/app/net.christianbeier.Gromit-MPX/config/` if you installed
-the Flatpak). Here you can specify which Device/Button/Modifier
-combination invokes which tool. See the copy of `gromit-mpx.cfg`
-distributed with this program for an example. An overview on the syntax:
+directory defined by `$XDG_CONFIG_HOME` (usually `~/.config`).  Here
+you can specify which Device/Button/Modifier combination invokes which
+tool.  See the copy of `gromit-mpx.cfg` distributed with this program
+for an example.  An overview on the syntax:
 
     # Comments can be either # Shell-Style or
     /* C-Style. */
@@ -156,15 +148,6 @@ If you want another minimum size instead of the default 1, add `minsize`
 like this:
 
 	"red Marker" = "red Pen" (minsize=14);
-
-You can set a maximum size as well:
-
-	"red Marker" = "red Pen" (maxsize=20);
-
-Both `minsize` and `maxsize` can be combined to define a tool that's
-not allowed to change size:
-
-	"red fixed Marker" = "red Pen" (minsize=10 maxsize=10);
 
 You can also draw lines that end in an arrow head. For this you
 have to specify `arrowsize`. This is a factor relative to the width
@@ -236,10 +219,8 @@ Type=Application
 Exec=gromit-mpx
 ```
 
-If you have the Flatpak installed, the last line needs to start with
-`Exec=flatpak run net.christianbeier.Gromit-MPX`. You can freely add
-command line arguments to the 'Exec' stanza, configuring the autostarted
-instance to your needs.
+You can freely add command line arguments to the 'Exec' stanza, configuring
+the autostarted instance to your needs.
 
 ## Building it
 
@@ -257,11 +238,7 @@ from the root of the source tree.
 XFCE per default grabs Ctrl-F1 to Ctrl-F12 (switch to workspace 1-12)
 and Alt-F9 (minimize window) which renders Gromit-MPX's default hotkey
 mapping unusable. Gromit-MPX detects XFCE and changes the default hotkeys
-to Home and End. Those can can still be overridden by the user. In case
-you're using XFCE 4.14 or newer, chances are that all 'special' keys are
-grabbed by XFCE itself, which means you'll have to modify XFCE's keybindings
-(Settings->Window Manager->Keyboard) manually in order to 'make room' for
-Gromit-MPX's ones.
+to Home and End. Those can can still be overridden by the user.
 
 When there is no [compositing manager](https://en.wikipedia.org/wiki/Compositing_window_manager)
 such as Mutter or KWin running, Gromit-MPX falls back to a legacy drawing mode. This may
@@ -270,10 +247,6 @@ thin lines. It makes heavy use of the shape extension, which is
 quite expensive if you paint a complex pattern on screen. Especially
 terminal-programs tend to scroll incredibly slow if something is
 painted over their window.
-
-If Gromit-MPX under Wayland complains about "cannot open display", make
-sure you have XWayland runnning or its autostart configured. Gromit-MPX
-needs XWayland when running in a Wayland session.
 
 ## Similar Tools
 

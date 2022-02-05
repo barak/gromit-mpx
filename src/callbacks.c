@@ -24,11 +24,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include "main.h"
+#include "gromit-mpx.h"
 #include "input.h"
 #include "callbacks.h"
 #include "config.h"
-#include "drawing.h"
 #include "build-config.h"
 
 
@@ -129,9 +128,9 @@ void on_monitors_changed ( GdkScreen *screen,
 
 
   data->default_pen = paint_context_new (data, GROMIT_PEN,
-					 data->red, 7, 0, 1, G_MAXUINT);
+					 data->red, 7, 0, 1);
   data->default_eraser = paint_context_new (data, GROMIT_ERASER,
-					    data->red, 75, 0, 1, G_MAXUINT);
+					    data->red, 75, 0, 1);
 
   if(!data->composited) // set shape
     {
@@ -275,9 +274,6 @@ gboolean on_buttonpress (GtkWidget *win,
 			      devdata->cur_context->minwidth) +
 		    devdata->cur_context->minwidth);
 
-  if(data->maxwidth > devdata->cur_context->maxwidth)
-    data->maxwidth = devdata->cur_context->maxwidth;
-
   if (ev->button <= 5)
     draw_line (data, ev->device, ev->x, ev->y, ev->x, ev->y);
 
@@ -328,9 +324,6 @@ gboolean on_motion (GtkWidget *win,
 					  devdata->cur_context->minwidth) +
 				devdata->cur_context->minwidth);
 
-	      if(data->maxwidth > devdata->cur_context->maxwidth)
-		data->maxwidth = devdata->cur_context->maxwidth;
-
               gdk_device_get_axis(ev->device, coords[i]->axes,
                                   GDK_AXIS_X, &x);
               gdk_device_get_axis(ev->device, coords[i]->axes,
@@ -357,9 +350,6 @@ gboolean on_motion (GtkWidget *win,
 			(double) (devdata->cur_context->width -
 				  devdata->cur_context->minwidth) +
 			devdata->cur_context->minwidth);
-
-      if(data->maxwidth > devdata->cur_context->maxwidth)
-	data->maxwidth = devdata->cur_context->maxwidth;
 
       if(devdata->motion_time > 0)
 	{
@@ -645,12 +635,12 @@ void on_about(GtkMenuItem *menuitem,
     gtk_show_about_dialog (NULL,
 			   "program-name", "Gromit-MPX",
 			   "logo-icon-name", "net.christianbeier.Gromit-MPX",
-			   "title", _("About Gromit-MPX"),
-			   "comments", _("Gromit-MPX (GRaphics Over MIscellaneous Things - Multi-Pointer-EXtension) is an on-screen annotation tool that works with any Unix desktop environment under X11 as well as Wayland."),
-			   "version", PACKAGE_VERSION,
-			   "website", PACKAGE_URL,
+			   "title", "About Gromit-MPX",
+			   "comments", "Gromit-MPX (GRaphics Over MIscellaneous Things - Multi-Pointer-EXtension) is an on-screen annotation tool that works with any Unix desktop environment under X11 as well as Wayland.",
+			   "version", VERSION,
+			   "website", "https://github.com/bk138/gromit-mpx",
 			   "authors", authors,
-			   "copyright", "2009-2020 Christian Beier, Copyright 2000 Simon Budig",
+			   "copyright", "2009-2022 Christian Beier, Copyright 2000 Simon Budig",
 			   "license-type", GTK_LICENSE_GPL_2_0,
 			   NULL);
 }
@@ -671,7 +661,7 @@ void on_intro(GtkMenuItem *menuitem,
     gtk_window_set_position (GTK_WINDOW(assistant), GTK_WIN_POS_CENTER);
 
     // set page one
-    GtkWidget *widgetOne = gtk_label_new(_("Gromit-MPX (GRaphics Over MIscellaneous Things) is a small tool to make\n"
+    GtkWidget *widgetOne = gtk_label_new ("Gromit-MPX (GRaphics Over MIscellaneous Things) is a small tool to make\n"
 					  "annotations on the screen.\n\n"
 					  "Its main use is for making presentations of some application. Normally,\n"
 					  "you would have to move the mouse pointer around the point of interest\n"
@@ -679,9 +669,9 @@ void on_intro(GtkMenuItem *menuitem,
 					  "everywhere onto the screen, highlighting some button or area.\n\n"
                                           "If you happen to enjoy using Gromit-MPX, please consider supporting\n"
 					  "its development by using one of the donation options on the project's\n"
-					  "website or directly via the support options available from the tray menu.\n"));
+					  "website or directly via the support options available from the tray menu.\n");
     gtk_assistant_append_page (GTK_ASSISTANT (assistant), widgetOne);
-    gtk_assistant_set_page_title (GTK_ASSISTANT (assistant), widgetOne, _("Gromit-MPX - What is it?"));
+    gtk_assistant_set_page_title (GTK_ASSISTANT (assistant), widgetOne, "Gromit-MPX - What is it?");
     gtk_assistant_set_page_type (GTK_ASSISTANT (assistant), widgetOne, GTK_ASSISTANT_PAGE_INTRO);
     gtk_assistant_set_page_complete (GTK_ASSISTANT (assistant), widgetOne, TRUE);
 
@@ -689,7 +679,7 @@ void on_intro(GtkMenuItem *menuitem,
     GtkWidget *widgetTwo = gtk_label_new (NULL);
     char widgetTwoBuf[4096];
     snprintf(widgetTwoBuf, sizeof(widgetTwoBuf),
-	     _("You can operate Gromit-MPX using its tray icon (if your desktop environment\n"
+	     "You can operate Gromit-MPX using its tray icon (if your desktop environment\n"
 	     "provides a sys tray), but since you typically want to use the program you are\n"
 	     "demonstrating and highlighting something is a short interruption of your\n"
 	     "workflow, Gromit-MPX can be toggled on and off on the fly via a hotkey:\n\n"
@@ -700,20 +690,20 @@ void on_intro(GtkMenuItem *menuitem,
 	     "   toggle visibility:       CTRL-%s\n"
 	     "   quit:                    ALT-%s\n"
 	     "   undo last stroke:        %s\n"
-	     "   redo last undone stroke: SHIFT-%s</b></tt>"),
+	     "   redo last undone stroke: SHIFT-%s</b></tt>",
 	     data->hot_keyval, data->undo_keyval,
 	     data->hot_keyval, data->hot_keyval, data->hot_keyval, data->hot_keyval, data->undo_keyval, data->undo_keyval);
     gtk_label_set_markup (GTK_LABEL (widgetTwo), widgetTwoBuf);
     gtk_assistant_append_page (GTK_ASSISTANT (assistant), widgetTwo);
-    gtk_assistant_set_page_title (GTK_ASSISTANT (assistant), widgetTwo, _("Gromit-MPX - How to use it"));
+    gtk_assistant_set_page_title (GTK_ASSISTANT (assistant), widgetTwo, "Gromit-MPX - How to use it");
     gtk_assistant_set_page_type (GTK_ASSISTANT (assistant), widgetTwo, GTK_ASSISTANT_PAGE_CONTENT);
     gtk_assistant_set_page_complete (GTK_ASSISTANT (assistant), widgetTwo, TRUE);
 
     // set page three
     GtkWidget *widgetThree = gtk_grid_new ();
-    GtkWidget *widgetThreeText = gtk_label_new (_("Do you want to show this introduction again on the next start of Gromit-MPX?\n"
-						  "You can always access it again via the sys tray menu.\n"));
-    GtkWidget *widgetThreeButton = gtk_check_button_new_with_label (_("Show again on startup"));
+    GtkWidget *widgetThreeText = gtk_label_new ("Do you want to show this introduction again on the next start of Gromit-MPX?\n"
+						"You can always access it again via the sys tray menu.\n");
+    GtkWidget *widgetThreeButton = gtk_check_button_new_with_label ("Show again on startup");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widgetThreeButton), data->show_intro_on_startup);
     gtk_grid_attach (GTK_GRID (widgetThree), widgetThreeText, 0, 0, 1, 1);
     gtk_grid_attach_next_to (GTK_GRID (widgetThree), widgetThreeButton, widgetThreeText, GTK_POS_BOTTOM, 1, 1);
