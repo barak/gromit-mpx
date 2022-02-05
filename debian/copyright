@@ -18,8 +18,8 @@ License: GPL-2+
 Files: data/net.christianbeier.Gromit-MPX.appdata.xml
 Copyright: 2020 Christian Beier <info@christianbeier.net>
 Comment: above file contains
-	  <metadata_license>CC-BY-4.0</metadata_license>
-	  <project_license>GPL-2.0-only</project_license>
+ 	  <metadata_license>CC-BY-4.0</metadata_license>
+ 	  <project_license>GPL-2.0-only</project_license>
 License: CC-BY-4.0
 
 License: GPL-2+

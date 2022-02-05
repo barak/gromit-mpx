@@ -1,3 +1,10 @@
+gromit-mpx (1.4.1-1) unstable; urgency=medium
+
+  * New upstream version
+  * debian/copyright: use spaces rather than tabs to start continuation lines.
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Sat, 05 Feb 2022 16:26:33 +0000
+
 gromit-mpx (1.4-3) unstable; urgency=medium
 
   * track upstream changes
