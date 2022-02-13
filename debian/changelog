@@ -1,3 +1,9 @@
+gromit-mpx (1.4.2-1) unstable; urgency=medium
+
+  * New upstream version
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Sun, 13 Feb 2022 23:02:55 +0000
+
 gromit-mpx (1.4.1-1) unstable; urgency=medium
 
   * New upstream version
