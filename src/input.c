@@ -372,6 +372,10 @@ void release_grab (GromitData *data,
       cairo_region_t *r = cairo_region_create();
       gtk_widget_input_shape_combine_region(data->win, r);
       cairo_region_destroy(r);
+
+      // force a redraw, otherwise input shape is not applied,
+      // at least on newer GNOME versions
+      gdk_window_invalidate_rect(gtk_widget_get_window(data->win), NULL, 0);
   }
 
 
@@ -402,6 +406,9 @@ void release_grab (GromitData *data,
         g_printerr ("DEBUG: Ungrabbed all Devices.\n");
 
       indicate_active(data, FALSE);
+
+      if (!data->painted)
+	  hide_window (data);
 
       return;
     }
@@ -445,6 +452,9 @@ void acquire_grab (GromitData *data,
       cairo_region_t *r = cairo_region_create_rectangle(&rect);
       gtk_widget_input_shape_combine_region(data->win, r);
       cairo_region_destroy(r);
+      // force a redraw, otherwise input shape is not applied,
+      // at least on newer GNOME versions
+      gdk_window_invalidate_rect(gtk_widget_get_window(data->win), NULL, 0);
   }
 
   if(!dev) /* this means grab all */
