@@ -22,13 +22,12 @@
  */
 
 #include <string.h>
-#include <math.h>
 #include <stdlib.h>
 
 #include "callbacks.h"
 #include "config.h"
 #include "input.h"
-#include "gromit-mpx.h"
+#include "main.h"
 #include "build-config.h"
 
 #include "paint_cursor.xpm"
@@ -41,7 +40,8 @@ GromitPaintContext *paint_context_new (GromitData *data,
 				       GdkRGBA *paint_color, 
 				       guint width,
 				       guint arrowsize,
-				       guint minwidth)
+				       guint minwidth,
+				       guint maxwidth)
 {
   GromitPaintContext *context;
 
@@ -51,6 +51,7 @@ GromitPaintContext *paint_context_new (GromitData *data,
   context->width = width;
   context->arrowsize = arrowsize;
   context->minwidth = minwidth;
+  context->maxwidth = maxwidth;
   context->paint_color = paint_color;
 
   
@@ -91,8 +92,9 @@ void paint_context_print (gchar *name,
       g_printerr ("UNKNOWN, "); break;
   }
 
-  g_printerr ("width: %3d, ", context->width);
-  g_printerr ("minwidth: %3d, ", context->minwidth);
+  g_printerr ("width: %u, ", context->width);
+  g_printerr ("minwidth: %u, ", context->minwidth);
+  g_printerr ("maxwidth: %u, ", context->maxwidth);
   g_printerr ("arrowsize: %.2f, ", context->arrowsize);
   g_printerr ("color: %s\n", gdk_rgba_to_string(context->paint_color));
 }
@@ -102,99 +104,6 @@ void paint_context_free (GromitPaintContext *context)
 {
   cairo_destroy(context->paint_ctx);
   g_free (context);
-}
-
-
-void coord_list_prepend (GromitData *data, 
-			 GdkDevice* dev, 
-			 gint x, 
-			 gint y, 
-			 gint width)
-{
-  /* get the data for this device */
-  GromitDeviceData *devdata = g_hash_table_lookup(data->devdatatable, dev);
-
-  GromitStrokeCoordinate *point;
-
-  point = g_malloc (sizeof (GromitStrokeCoordinate));
-  point->x = x;
-  point->y = y;
-  point->width = width;
-
-  devdata->coordlist = g_list_prepend (devdata->coordlist, point);
-}
-
-
-void coord_list_free (GromitData *data, 
-		      GdkDevice* dev)
-{
-  /* get the data for this device */
-  GromitDeviceData *devdata = g_hash_table_lookup(data->devdatatable, dev);
-
-  GList *ptr;
-  ptr = devdata->coordlist;
-
-  while (ptr)
-    {
-      g_free (ptr->data);
-      ptr = ptr->next;
-    }
-
-  g_list_free (devdata->coordlist);
-
-  devdata->coordlist = NULL;
-}
-
-
-gboolean coord_list_get_arrow_param (GromitData *data,
-				     GdkDevice  *dev,
-				     gint        search_radius,
-				     gint       *ret_width,
-				     gfloat     *ret_direction)
-{
-  gint x0, y0, r2, dist;
-  gboolean success = FALSE;
-  GromitStrokeCoordinate  *cur_point, *valid_point;
-  /* get the data for this device */
-  GromitDeviceData *devdata = g_hash_table_lookup(data->devdatatable, dev);
-  GList *ptr = devdata->coordlist;
-  gfloat width;
-
-  valid_point = NULL;
-
-  if (ptr)
-    {
-      cur_point = ptr->data;
-      x0 = cur_point->x;
-      y0 = cur_point->y;
-      r2 = search_radius * search_radius;
-      dist = 0;
-
-      while (ptr && dist < r2)
-        {
-          ptr = ptr->next;
-          if (ptr)
-            {
-              cur_point = ptr->data;
-              dist = (cur_point->x - x0) * (cur_point->x - x0) +
-                     (cur_point->y - y0) * (cur_point->y - y0);
-              width = cur_point->width * devdata->cur_context->arrowsize;
-              if (width * 2 <= dist &&
-                  (!valid_point || valid_point->width < cur_point->width))
-                valid_point = cur_point;
-            }
-        }
-
-      if (valid_point)
-        {
-          *ret_width = MAX (valid_point->width * devdata->cur_context->arrowsize,
-                            2);
-          *ret_direction = atan2 (y0 - valid_point->y, x0 - valid_point->x);
-          success = TRUE;
-        }
-    }
-
-  return success;
 }
 
 
@@ -426,9 +335,6 @@ void select_tool (GromitData *data,
         }
       while (i < req_buttons);
 
-      g_free (name);
-      g_free (default_name);
-
       if (!success)
         {
           if (gdk_device_get_source(device) == GDK_SOURCE_ERASER)
@@ -439,6 +345,9 @@ void select_tool (GromitData *data,
 	  if(data->debug)
 	      g_printerr("DEBUG: select_tool set fallback context for '%s'\n", name);
         }
+
+      g_free (name);
+      g_free (default_name);
     }
   else
     g_printerr ("ERROR: select_tool attempted to select nonexistent device!\n");
@@ -566,108 +475,6 @@ void redo_drawing (GromitData *data)
 
 
 
-void draw_line (GromitData *data,
-		GdkDevice *dev,
-		gint x1, gint y1,
-		gint x2, gint y2)
-{
-  GdkRectangle rect;
-  GromitDeviceData *devdata = g_hash_table_lookup(data->devdatatable, dev);
-
-  rect.x = MIN (x1,x2) - data->maxwidth / 2;
-  rect.y = MIN (y1,y2) - data->maxwidth / 2;
-  rect.width = ABS (x1-x2) + data->maxwidth;
-  rect.height = ABS (y1-y2) + data->maxwidth;
-
-  if(data->debug)
-    g_printerr("DEBUG: draw line from %d %d to %d %d\n", x1, y1, x2, y2);
-
-  if (devdata->cur_context->paint_ctx)
-    {
-      cairo_set_line_width(devdata->cur_context->paint_ctx, data->maxwidth);
-      cairo_set_line_cap(devdata->cur_context->paint_ctx, CAIRO_LINE_CAP_ROUND);
-      cairo_set_line_join(devdata->cur_context->paint_ctx, CAIRO_LINE_JOIN_ROUND);
- 
-      cairo_move_to(devdata->cur_context->paint_ctx, x1, y1);
-      cairo_line_to(devdata->cur_context->paint_ctx, x2, y2);
-      cairo_stroke(devdata->cur_context->paint_ctx);
-
-      data->modified = 1;
-
-      gdk_window_invalidate_rect(gtk_widget_get_window(data->win), &rect, 0); 
-    }
-
-  data->painted = 1;
-}
-
-
-void draw_arrow (GromitData *data, 
-		 GdkDevice *dev,
-		 gint x1, gint y1,
-		 gint width,
-		 gfloat direction)
-{
-  GdkRectangle rect;
-  GdkPoint arrowhead [4];
-
-  /* get the data for this device */
-  GromitDeviceData *devdata = g_hash_table_lookup(data->devdatatable, dev);
-
-  width = width / 2;
-
-  /* I doubt that calculating the boundary box more exact is very useful */
-  rect.x = x1 - 4 * width - 1;
-  rect.y = y1 - 4 * width - 1;
-  rect.width = 8 * width + 2;
-  rect.height = 8 * width + 2;
-
-  arrowhead [0].x = x1 + 4 * width * cos (direction);
-  arrowhead [0].y = y1 + 4 * width * sin (direction);
-
-  arrowhead [1].x = x1 - 3 * width * cos (direction)
-                       + 3 * width * sin (direction);
-  arrowhead [1].y = y1 - 3 * width * cos (direction)
-                       - 3 * width * sin (direction);
-
-  arrowhead [2].x = x1 - 2 * width * cos (direction);
-  arrowhead [2].y = y1 - 2 * width * sin (direction);
-
-  arrowhead [3].x = x1 - 3 * width * cos (direction)
-                       - 3 * width * sin (direction);
-  arrowhead [3].y = y1 + 3 * width * cos (direction)
-                       - 3 * width * sin (direction);
-
-  if (devdata->cur_context->paint_ctx)
-    {
-      cairo_set_line_width(devdata->cur_context->paint_ctx, 1);
-      cairo_set_line_cap(devdata->cur_context->paint_ctx, CAIRO_LINE_CAP_ROUND);
-      cairo_set_line_join(devdata->cur_context->paint_ctx, CAIRO_LINE_JOIN_ROUND);
- 
-      cairo_move_to(devdata->cur_context->paint_ctx, arrowhead[0].x, arrowhead[0].y);
-      cairo_line_to(devdata->cur_context->paint_ctx, arrowhead[1].x, arrowhead[1].y);
-      cairo_line_to(devdata->cur_context->paint_ctx, arrowhead[2].x, arrowhead[2].y);
-      cairo_line_to(devdata->cur_context->paint_ctx, arrowhead[3].x, arrowhead[3].y);
-      cairo_fill(devdata->cur_context->paint_ctx);
-
-      gdk_cairo_set_source_rgba(devdata->cur_context->paint_ctx, data->black);
-
-      cairo_move_to(devdata->cur_context->paint_ctx, arrowhead[0].x, arrowhead[0].y);
-      cairo_line_to(devdata->cur_context->paint_ctx, arrowhead[1].x, arrowhead[1].y);
-      cairo_line_to(devdata->cur_context->paint_ctx, arrowhead[2].x, arrowhead[2].y);
-      cairo_line_to(devdata->cur_context->paint_ctx, arrowhead[3].x, arrowhead[3].y);
-      cairo_line_to(devdata->cur_context->paint_ctx, arrowhead[0].x, arrowhead[0].y);
-      cairo_stroke(devdata->cur_context->paint_ctx);
-
-      gdk_cairo_set_source_rgba(devdata->cur_context->paint_ctx, devdata->cur_context->paint_color);
-    
-      data->modified = 1;
-
-      gdk_window_invalidate_rect(gtk_widget_get_window(data->win), &rect, 0); 
-    }
-
-  data->painted = 1;
-}
-
 
 
 
@@ -708,6 +515,12 @@ void setup_main_app (GromitData *data, int argc, char ** argv)
 		 "Probably the GDK_CORE_DEVICE_EVENTS environment variable is set, try to start Gromit-MPX with this variable unset.\n");
       exit(1);
   }
+
+  /*
+    l18n
+   */
+  bindtextdomain(PACKAGE_LOCALE_DOMAIN, PACKAGE_LOCALE_DIR);
+  textdomain(PACKAGE_LOCALE_DOMAIN);
 
   /*
     HOT KEYS
@@ -840,6 +653,7 @@ void setup_main_app (GromitData *data, int argc, char ** argv)
   gtk_selection_add_target (data->win, GA_CONTROL, GA_RELOAD, 7);
   gtk_selection_add_target (data->win, GA_CONTROL, GA_UNDO, 8);
   gtk_selection_add_target (data->win, GA_CONTROL, GA_REDO, 9);
+  gtk_selection_add_target (data->win, GA_CONTROL, GA_LINE, 10);
 
 
  
@@ -859,7 +673,7 @@ void setup_main_app (GromitData *data, int argc, char ** argv)
   /*
     parse cmdline
   */
-  activate = app_parse_args (argc, argv, data);
+  activate = parse_args (argc, argv, data);
 
   // might have been in key file
   gtk_widget_set_opacity(data->win, data->opacity);
@@ -939,9 +753,9 @@ void setup_main_app (GromitData *data, int argc, char ** argv)
   data->modified = 0;
 
   data->default_pen = paint_context_new (data, GROMIT_PEN,
-					 data->red, 7, 0, 1);
+					 data->red, 7, 0, 1, G_MAXUINT);
   data->default_eraser = paint_context_new (data, GROMIT_ERASER,
-					    data->red, 75, 0, 1);
+					    data->red, 75, 0, 1, G_MAXUINT);
 
   
 
@@ -967,26 +781,28 @@ void setup_main_app (GromitData *data, int argc, char ** argv)
 
   char labelBuf[128];
   /* Create the menu items */
-  snprintf(labelBuf, sizeof(labelBuf), "Toggle Painting (%s)", data->hot_keyval);
+  snprintf(labelBuf, sizeof(labelBuf), _("Toggle Painting (%s)"), data->hot_keyval);
   GtkWidget* toggle_paint_item = gtk_menu_item_new_with_label (labelBuf);
-  snprintf(labelBuf, sizeof(labelBuf), "Clear Screen (SHIFT-%s)", data->hot_keyval);
+  snprintf(labelBuf, sizeof(labelBuf), _("Clear Screen (SHIFT-%s)"), data->hot_keyval);
   GtkWidget* clear_item = gtk_menu_item_new_with_label (labelBuf);
-  snprintf(labelBuf, sizeof(labelBuf), "Toggle Visibility (CTRL-%s)", data->hot_keyval);
+  snprintf(labelBuf, sizeof(labelBuf), _("Toggle Visibility (CTRL-%s)"), data->hot_keyval);
   GtkWidget* toggle_vis_item = gtk_menu_item_new_with_label (labelBuf);
-  GtkWidget* thicker_lines_item = gtk_menu_item_new_with_label ("Thicker Lines");
-  GtkWidget* thinner_lines_item = gtk_menu_item_new_with_label ("Thinner Lines");
-  GtkWidget* opacity_bigger_item = gtk_menu_item_new_with_label ("Bigger Opacity");
-  GtkWidget* opacity_lesser_item = gtk_menu_item_new_with_label ("Lesser Opacity");
-  snprintf(labelBuf, sizeof(labelBuf), "Undo (%s)", data->undo_keyval);
+  GtkWidget* thicker_lines_item = gtk_menu_item_new_with_label (_("Thicker Lines"));
+  GtkWidget* thinner_lines_item = gtk_menu_item_new_with_label (_("Thinner Lines"));
+  GtkWidget* opacity_bigger_item = gtk_menu_item_new_with_label (_("Bigger Opacity"));
+  GtkWidget* opacity_lesser_item = gtk_menu_item_new_with_label (_("Lesser Opacity"));
+  snprintf(labelBuf, sizeof(labelBuf), _("Undo (%s)"), data->undo_keyval);
   GtkWidget* undo_item = gtk_menu_item_new_with_label (labelBuf);
-  snprintf(labelBuf, sizeof(labelBuf), "Redo (SHIFT-%s)", data->undo_keyval);
+  snprintf(labelBuf, sizeof(labelBuf), _("Redo (SHIFT-%s)"), data->undo_keyval);
   GtkWidget* redo_item = gtk_menu_item_new_with_label (labelBuf);
 
-  GtkWidget* sep_item = gtk_separator_menu_item_new();
-  GtkWidget* intro_item = gtk_menu_item_new_with_mnemonic("_Introduction");
-  GtkWidget* support_item = gtk_menu_item_new_with_mnemonic("_Support Gromit-MPX");
-  GtkWidget* about_item = gtk_menu_item_new_with_mnemonic("_About");
-  snprintf(labelBuf, sizeof(labelBuf), "_Quit (ALT-%s)", data->hot_keyval);
+  GtkWidget* sep1_item = gtk_separator_menu_item_new();
+  GtkWidget* intro_item = gtk_menu_item_new_with_mnemonic(_("_Introduction"));
+  GtkWidget* support_item = gtk_menu_item_new_with_mnemonic(_("_Support Gromit-MPX"));
+  GtkWidget* about_item = gtk_menu_item_new_with_mnemonic(_("_About"));
+
+  GtkWidget* sep2_item = gtk_separator_menu_item_new();
+  snprintf(labelBuf, sizeof(labelBuf), _("_Quit (ALT-%s)"), data->hot_keyval);
   GtkWidget* quit_item = gtk_menu_item_new_with_mnemonic(labelBuf);
 
 
@@ -1001,10 +817,12 @@ void setup_main_app (GromitData *data, int argc, char ** argv)
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), undo_item);
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), redo_item);
 
-  gtk_menu_shell_append (GTK_MENU_SHELL (menu), sep_item);
+  gtk_menu_shell_append (GTK_MENU_SHELL (menu), sep1_item);
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), intro_item);
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), support_item);
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), about_item);
+
+  gtk_menu_shell_append (GTK_MENU_SHELL (menu), sep2_item);
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), quit_item);
 
 
@@ -1081,10 +899,12 @@ void setup_main_app (GromitData *data, int argc, char ** argv)
   gtk_widget_show (undo_item);
   gtk_widget_show (redo_item);
 
-  gtk_widget_show (sep_item);
+  gtk_widget_show (sep1_item);
   gtk_widget_show (intro_item);
   gtk_widget_show (support_item);
   gtk_widget_show (about_item);
+
+  gtk_widget_show (sep2_item);
   gtk_widget_show (quit_item);
 
 
@@ -1096,9 +916,9 @@ void setup_main_app (GromitData *data, int argc, char ** argv)
   GtkWidget *support_menu = gtk_menu_new ();
   gtk_menu_item_set_submenu(GTK_MENU_ITEM(support_item), support_menu);
 
-  GtkWidget* support_liberapay_item = gtk_menu_item_new_with_label("Via LiberaPay");
-  GtkWidget* support_patreon_item = gtk_menu_item_new_with_label("Via Patreon");
-  GtkWidget* support_paypal_item = gtk_menu_item_new_with_label("Via PayPal");
+  GtkWidget* support_liberapay_item = gtk_menu_item_new_with_label(_("Via LiberaPay"));
+  GtkWidget* support_patreon_item = gtk_menu_item_new_with_label(_("Via Patreon"));
+  GtkWidget* support_paypal_item = gtk_menu_item_new_with_label(_("Via PayPal"));
 
   gtk_menu_shell_append (GTK_MENU_SHELL (support_menu), support_liberapay_item);
   gtk_menu_shell_append (GTK_MENU_SHELL (support_menu), support_patreon_item);
@@ -1129,124 +949,6 @@ void parse_print_help (gpointer key, gpointer value, gpointer user_data)
   paint_context_print ((gchar *) key, (GromitPaintContext *) value);
 }
 
-
-int app_parse_args (int argc, char **argv, GromitData *data)
-{
-   gint      i;
-   gchar    *arg;
-   gboolean  wrong_arg = FALSE;
-   gboolean  activate = FALSE;
-
-   for (i=1; i < argc ; i++)
-     {
-       arg = argv[i];
-       if (strcmp (arg, "-a") == 0 ||
-           strcmp (arg, "--active") == 0)
-         {
-           activate = TRUE;
-         }
-       else if (strcmp (arg, "-d") == 0 ||
-                strcmp (arg, "--debug") == 0)
-         {
-           data->debug = 1;
-         }
-       else if (strcmp (arg, "-k") == 0 ||
-                strcmp (arg, "--key") == 0)
-         {
-           if (i+1 < argc)
-             {
-               data->hot_keyval = argv[i+1];
-               data->hot_keycode = 0;
-               i++;
-             }
-           else
-             {
-               g_printerr ("-k requires an Key-Name as argument\n");
-               wrong_arg = TRUE;
-             }
-         }
-       else if (strcmp (arg, "-K") == 0 ||
-                strcmp (arg, "--keycode") == 0)
-         {
-           if (i+1 < argc && atoi (argv[i+1]) > 0)
-             {
-               data->hot_keyval = NULL;
-               data->hot_keycode = atoi (argv[i+1]);
-               i++;
-             }
-           else
-             {
-               g_printerr ("-K requires an keycode > 0 as argument\n");
-               wrong_arg = TRUE;
-             }
-         }
-      else if (strcmp (arg, "-o") == 0 ||
-                strcmp (arg, "--opacity") == 0)
-         {
-           if (i+1 < argc && strtod (argv[i+1], NULL) >= 0.0 && strtod (argv[i+1], NULL) <= 1.0)
-             {
-               data->opacity = strtod (argv[i+1], NULL);
-               g_printerr ("Opacity set to: %.2f\n", data->opacity);
-               gtk_widget_set_opacity(data->win, data->opacity);
-               i++;
-             }
-           else
-             {
-               g_printerr ("-o requires an opacity >=0 and <=1 as argument\n");
-               wrong_arg = TRUE;
-             }
-         }
-       else if (strcmp (arg, "-u") == 0 ||
-                strcmp (arg, "--undo-key") == 0)
-         {
-           if (i+1 < argc)
-             {
-               data->undo_keyval = argv[i+1];
-               data->undo_keycode = 0;
-               i++;
-             }
-           else
-             {
-               g_printerr ("-u requires an Key-Name as argument\n");
-               wrong_arg = TRUE;
-             }
-         }
-       else if (strcmp (arg, "-U") == 0 ||
-                strcmp (arg, "--undo-keycode") == 0)
-         {
-           if (i+1 < argc && atoi (argv[i+1]) > 0)
-             {
-               data->undo_keyval = NULL;
-               data->undo_keycode = atoi (argv[i+1]);
-               i++;
-             }
-           else
-             {
-               g_printerr ("-U requires an keycode > 0 as argument\n");
-               wrong_arg = TRUE;
-             }
-         }
-       else if (strcmp (arg, "-V") == 0 ||
-		strcmp (arg, "--version") == 0)
-         {
-	     g_print("Gromit-MPX " VERSION "\n");
-	     exit(0);
-         }
-       else
-         {
-           g_printerr ("Unknown Option for Gromit-MPX startup: \"%s\"\n", arg);
-           wrong_arg = TRUE;
-         }
-
-       if (wrong_arg)
-         {
-           g_printerr ("Please see the Gromit-MPX manpage for the correct usage\n");
-           exit (1);
-         }
-     }
-
-   return activate;
-}
 
 
 /*
@@ -1280,6 +982,40 @@ int main_client (int argc, char **argv, GromitData *data)
              }
            else
              data->clientdata = "-1"; /* default to grab all */
+         }
+       else if (strcmp (arg, "-l") == 0 ||
+           strcmp (arg, "--line") == 0)
+         {
+           if (argc - (i+1) == 6) /* this command must have exactly 6 params */
+             {
+              
+                // check if provided values are valid coords on the screen
+               if (atoi(argv[i+1]) < 0 || atoi(argv[i+1]) > (int)data->width || 
+                   atoi(argv[i+2]) < 0 || atoi(argv[i+2]) > (int)data->height ||
+                   atoi(argv[i+3]) < 0 || atoi(argv[i+3]) > (int)data->width ||
+                   atoi(argv[i+4]) < 0 || atoi(argv[i+4]) > (int)data->height)
+                    {
+                      g_printerr ("Invalid coordinates\n");
+                      wrong_arg = TRUE;
+                    }
+               else if (atoi(argv[i+6]) < 1)
+                    {
+                      g_printerr ("Thickness must be atleast 1\n");
+                      wrong_arg = TRUE;
+                    }
+               else 
+                    {
+                      data->clientdata = g_strjoin(" ", argv[i+1], argv[i+2], argv[i+3], argv[i+4], argv[i+5], argv[i+6], NULL);
+                    }
+              
+               action = GA_LINE;
+               i += 6;
+             }
+           else 
+             {
+               g_printerr ("-l requires 6 parameters: startX, startY, endX, endY, color, thickness\n");
+               wrong_arg = TRUE;
+             }
          }
        else if (strcmp (arg, "-v") == 0 ||
                 strcmp (arg, "--visibility") == 0)
@@ -1392,6 +1128,7 @@ int main (int argc, char **argv)
 
   gtk_selection_owner_set (data->win, GA_DATA, GDK_CURRENT_TIME);
   gtk_selection_add_target (data->win, GA_DATA, GA_TOGGLEDATA, 1007);
+  gtk_selection_add_target (data->win, GA_DATA, GA_LINEDATA, 1008);
 
 
 
@@ -1407,6 +1144,8 @@ int main (int argc, char **argv)
     return main_client (argc, argv, data);
 
   /* Main application */
+  signal(SIGINT, on_signal);
+  signal(SIGTERM, on_signal);
   setup_main_app (data, argc, argv);
   gtk_main ();
   shutdown_input_devices(data);

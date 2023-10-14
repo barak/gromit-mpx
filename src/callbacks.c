@@ -24,10 +24,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include "gromit-mpx.h"
+#include "main.h"
 #include "input.h"
 #include "callbacks.h"
 #include "config.h"
+#include "drawing.h"
 #include "build-config.h"
 
 
@@ -45,6 +46,15 @@ gboolean on_expose (GtkWidget *widget,
   cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
   cairo_paint (cr);
   cairo_restore (cr);
+
+  if (data->debug) {
+      // draw a pink background to know where the window is
+      cairo_save (cr);
+      cairo_set_source_rgba(cr, 64, 0, 64, 32);
+      cairo_set_operator (cr, CAIRO_OPERATOR_DEST_OVER);
+      cairo_paint (cr);
+      cairo_restore (cr);
+  }
 
   return TRUE;
 }
@@ -128,9 +138,9 @@ void on_monitors_changed ( GdkScreen *screen,
 
 
   data->default_pen = paint_context_new (data, GROMIT_PEN,
-					 data->red, 7, 0, 1);
+					 data->red, 7, 0, 1, G_MAXUINT);
   data->default_eraser = paint_context_new (data, GROMIT_ERASER,
-					    data->red, 75, 0, 1);
+					    data->red, 75, 0, 1, G_MAXUINT);
 
   if(!data->composited) // set shape
     {
@@ -195,7 +205,8 @@ void on_clientapp_selection_get (GtkWidget          *widget,
   if(data->debug)
     g_printerr("DEBUG: clientapp received request.\n");  
 
-  if (gtk_selection_data_get_target(selection_data) == GA_TOGGLEDATA)
+
+  if (gtk_selection_data_get_target(selection_data) == GA_TOGGLEDATA || gtk_selection_data_get_target(selection_data) == GA_LINEDATA)
     {
       ans = data->clientdata;
     }
@@ -274,6 +285,9 @@ gboolean on_buttonpress (GtkWidget *win,
 			      devdata->cur_context->minwidth) +
 		    devdata->cur_context->minwidth);
 
+  if(data->maxwidth > devdata->cur_context->maxwidth)
+    data->maxwidth = devdata->cur_context->maxwidth;
+
   if (ev->button <= 5)
     draw_line (data, ev->device, ev->x, ev->y, ev->x, ev->y);
 
@@ -324,6 +338,9 @@ gboolean on_motion (GtkWidget *win,
 					  devdata->cur_context->minwidth) +
 				devdata->cur_context->minwidth);
 
+	      if(data->maxwidth > devdata->cur_context->maxwidth)
+		data->maxwidth = devdata->cur_context->maxwidth;
+
               gdk_device_get_axis(ev->device, coords[i]->axes,
                                   GDK_AXIS_X, &x);
               gdk_device_get_axis(ev->device, coords[i]->axes,
@@ -350,6 +367,9 @@ gboolean on_motion (GtkWidget *win,
 			(double) (devdata->cur_context->width -
 				  devdata->cur_context->minwidth) +
 			devdata->cur_context->minwidth);
+
+      if(data->maxwidth > devdata->cur_context->maxwidth)
+	data->maxwidth = devdata->cur_context->maxwidth;
 
       if(devdata->motion_time > 0)
 	{
@@ -414,6 +434,13 @@ void on_mainapp_selection_get (GtkWidget          *widget,
       /* ask back client for device id */
       gtk_selection_convert (data->win, GA_DATA,
                              GA_TOGGLEDATA, time);
+      gtk_main(); /* Wait for the response */
+    }
+  else if(action == GA_LINE)
+    {
+      /* ask back client for device id */
+      gtk_selection_convert (data->win, GA_DATA,
+                             GA_LINEDATA, time);
       gtk_main(); /* Wait for the response */
     }
   else if (action == GA_VISIBILITY)
@@ -483,6 +510,59 @@ void on_mainapp_selection_received (GtkWidget *widget,
 		g_printerr("ERROR: No device at index %ld.\n", (long)dev_nr);
 	    }
         }
+      else if (gtk_selection_data_get_target(selection_data) == GA_LINEDATA) 
+	{
+
+	  gchar** line_args = g_strsplit((gchar*)gtk_selection_data_get_data(selection_data), " ", 6);
+	  int startX = atoi(line_args[0]);
+	  int startY = atoi(line_args[1]);
+	  int endX = atoi(line_args[2]);
+	  int endY = atoi(line_args[3]);
+	  gchar* hex_code = line_args[4];
+	  int thickness = atoi(line_args[5]);
+
+          if(data->debug) 
+	    {
+	      g_printerr("DEBUG: mainapp got line data back from client:\n");
+	      g_printerr("startX startY endX endY: %d %d %d %d\n", startX, startY, endX, endY);
+	      g_printerr("color: %s\n", hex_code);
+	      g_printerr("thickness: %d\n", thickness);
+	    }
+
+	  GdkRGBA* color = g_malloc (sizeof (GdkRGBA));
+	  GdkRGBA *fg_color=data->red;
+	  if (gdk_rgba_parse (color, hex_code))
+	    {
+	      fg_color = color;
+	    }
+	  else
+	    {
+	      g_printerr ("Unable to parse color. "
+	      "Keeping default.\n");
+	    }
+	  GromitPaintContext* line_ctx = paint_context_new(data, GROMIT_PEN, fg_color, thickness, 0, thickness, thickness);
+
+	  GdkRectangle rect;
+	  rect.x = MIN (startX,endX) - thickness / 2;
+	  rect.y = MIN (startY,endY) - thickness / 2;
+	  rect.width = ABS (startX-endX) + thickness;
+	  rect.height = ABS (startY-endY) + thickness;
+
+	  if(data->debug)
+	    g_printerr("DEBUG: draw line from %d %d to %d %d\n", startX, startY, endX, endY);
+
+	  cairo_set_line_width(line_ctx->paint_ctx, thickness);
+	  cairo_move_to(line_ctx->paint_ctx, startX, startY);
+	  cairo_line_to(line_ctx->paint_ctx, endX, endY);
+	  cairo_stroke(line_ctx->paint_ctx);
+
+	  data->modified = 1;
+	  gdk_window_invalidate_rect(gtk_widget_get_window(data->win), &rect, 0); 
+	  data->painted = 1;
+
+	  g_free(line_ctx);
+	  g_free (color);
+	}
     }
  
   gtk_main_quit ();
@@ -628,7 +708,7 @@ void on_redo(GtkMenuItem *menuitem,
 void on_about(GtkMenuItem *menuitem,
 	      gpointer     user_data)
 {
-    const gchar *authors [] = { "Christian Beier <dontmind@freeshell.org>",
+    const gchar *authors [] = { "Christian Beier <info@christianbeier.net>",
                                 "Simon Budig <Simon.Budig@unix-ag.org>",
                                 "Barak A. Pearlmutter <barak+git@pearlmutter.net>",
                                 "Nathan Whitehead <nwhitehe@gmail.com>",
@@ -643,17 +723,25 @@ void on_about(GtkMenuItem *menuitem,
                                 "Yuri D'Elia <yuri.delia@eurac.edu>",
 				"Julián Unrrein <junrrein@gmail.com>",
 				"Eshant Gupta <guptaeshant@gmail.com>",
+				"marput <frayedultrasonicaligator@disroot.org>",
+				"albanobattistella <34811668+albanobattistella@users.noreply.github.com>",
+				"Renato Candido <renatocan@gmail.com>",
+				"Komeil Parseh <ahmdparsh129@gmail.com>",
+				"Adam Chyła <adam@chyla.org>",
+				"bbhtt <62639087+bbhtt@users.noreply.github.com>",
+				"avma <avi.markovitz@gmail.com>",
 				"godmar <godmar@gmail.com>",
-                                 NULL };
+				"Ashwin Rajesh <46510831+VanillaViking@users.noreply.github.com>",
+				NULL };
     gtk_show_about_dialog (NULL,
 			   "program-name", "Gromit-MPX",
 			   "logo-icon-name", "net.christianbeier.Gromit-MPX",
-			   "title", "About Gromit-MPX",
-			   "comments", "Gromit-MPX (GRaphics Over MIscellaneous Things - Multi-Pointer-EXtension) is an on-screen annotation tool that works with any Unix desktop environment under X11 as well as Wayland.",
-			   "version", VERSION,
-			   "website", "https://github.com/bk138/gromit-mpx",
+			   "title", _("About Gromit-MPX"),
+			   "comments", _("Gromit-MPX (GRaphics Over MIscellaneous Things - Multi-Pointer-EXtension) is an on-screen annotation tool that works with any Unix desktop environment under X11 as well as Wayland."),
+			   "version", PACKAGE_VERSION,
+			   "website", PACKAGE_URL,
 			   "authors", authors,
-			   "copyright", "2009-2022 Christian Beier, Copyright 2000 Simon Budig",
+			   "copyright", "2009-2023 Christian Beier, Copyright 2000 Simon Budig",
 			   "license-type", GTK_LICENSE_GPL_2_0,
 			   NULL);
 }
@@ -674,7 +762,7 @@ void on_intro(GtkMenuItem *menuitem,
     gtk_window_set_position (GTK_WINDOW(assistant), GTK_WIN_POS_CENTER);
 
     // set page one
-    GtkWidget *widgetOne = gtk_label_new ("Gromit-MPX (GRaphics Over MIscellaneous Things) is a small tool to make\n"
+    GtkWidget *widgetOne = gtk_label_new(_("Gromit-MPX (GRaphics Over MIscellaneous Things) is a small tool to make\n"
 					  "annotations on the screen.\n\n"
 					  "Its main use is for making presentations of some application. Normally,\n"
 					  "you would have to move the mouse pointer around the point of interest\n"
@@ -682,9 +770,9 @@ void on_intro(GtkMenuItem *menuitem,
 					  "everywhere onto the screen, highlighting some button or area.\n\n"
                                           "If you happen to enjoy using Gromit-MPX, please consider supporting\n"
 					  "its development by using one of the donation options on the project's\n"
-					  "website or directly via the support options available from the tray menu.\n");
+					  "website or directly via the support options available from the tray menu.\n"));
     gtk_assistant_append_page (GTK_ASSISTANT (assistant), widgetOne);
-    gtk_assistant_set_page_title (GTK_ASSISTANT (assistant), widgetOne, "Gromit-MPX - What is it?");
+    gtk_assistant_set_page_title (GTK_ASSISTANT (assistant), widgetOne, _("Gromit-MPX - What is it?"));
     gtk_assistant_set_page_type (GTK_ASSISTANT (assistant), widgetOne, GTK_ASSISTANT_PAGE_INTRO);
     gtk_assistant_set_page_complete (GTK_ASSISTANT (assistant), widgetOne, TRUE);
 
@@ -692,7 +780,7 @@ void on_intro(GtkMenuItem *menuitem,
     GtkWidget *widgetTwo = gtk_label_new (NULL);
     char widgetTwoBuf[4096];
     snprintf(widgetTwoBuf, sizeof(widgetTwoBuf),
-	     "You can operate Gromit-MPX using its tray icon (if your desktop environment\n"
+	     _("You can operate Gromit-MPX using its tray icon (if your desktop environment\n"
 	     "provides a sys tray), but since you typically want to use the program you are\n"
 	     "demonstrating and highlighting something is a short interruption of your\n"
 	     "workflow, Gromit-MPX can be toggled on and off on the fly via a hotkey:\n\n"
@@ -703,20 +791,20 @@ void on_intro(GtkMenuItem *menuitem,
 	     "   toggle visibility:       CTRL-%s\n"
 	     "   quit:                    ALT-%s\n"
 	     "   undo last stroke:        %s\n"
-	     "   redo last undone stroke: SHIFT-%s</b></tt>",
+	     "   redo last undone stroke: SHIFT-%s</b></tt>"),
 	     data->hot_keyval, data->undo_keyval,
 	     data->hot_keyval, data->hot_keyval, data->hot_keyval, data->hot_keyval, data->undo_keyval, data->undo_keyval);
     gtk_label_set_markup (GTK_LABEL (widgetTwo), widgetTwoBuf);
     gtk_assistant_append_page (GTK_ASSISTANT (assistant), widgetTwo);
-    gtk_assistant_set_page_title (GTK_ASSISTANT (assistant), widgetTwo, "Gromit-MPX - How to use it");
+    gtk_assistant_set_page_title (GTK_ASSISTANT (assistant), widgetTwo, _("Gromit-MPX - How to use it"));
     gtk_assistant_set_page_type (GTK_ASSISTANT (assistant), widgetTwo, GTK_ASSISTANT_PAGE_CONTENT);
     gtk_assistant_set_page_complete (GTK_ASSISTANT (assistant), widgetTwo, TRUE);
 
     // set page three
     GtkWidget *widgetThree = gtk_grid_new ();
-    GtkWidget *widgetThreeText = gtk_label_new ("Do you want to show this introduction again on the next start of Gromit-MPX?\n"
-						"You can always access it again via the sys tray menu.\n");
-    GtkWidget *widgetThreeButton = gtk_check_button_new_with_label ("Show again on startup");
+    GtkWidget *widgetThreeText = gtk_label_new (_("Do you want to show this introduction again on the next start of Gromit-MPX?\n"
+						  "You can always access it again via the sys tray menu.\n"));
+    GtkWidget *widgetThreeButton = gtk_check_button_new_with_label (_("Show again on startup"));
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widgetThreeButton), data->show_intro_on_startup);
     gtk_grid_attach (GTK_GRID (widgetThree), widgetThreeText, 0, 0, 1, 1);
     gtk_grid_attach_next_to (GTK_GRID (widgetThree), widgetThreeButton, widgetThreeText, GTK_POS_BOTTOM, 1, 1);
@@ -762,3 +850,9 @@ void on_support_paypal(GtkMenuItem *menuitem, gpointer user_data)
 			    NULL);
 
 }
+
+void on_signal(int signum) {
+    // for now only SIGINT and SIGTERM
+    gtk_main_quit();
+}
+
