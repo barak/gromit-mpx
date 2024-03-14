@@ -40,6 +40,7 @@ GromitPaintContext *paint_context_new (GromitData *data,
 				       GdkRGBA *paint_color, 
 				       guint width,
 				       guint arrowsize,
+                                       GromitArrowType arrowtype,
 				       guint minwidth,
 				       guint maxwidth)
 {
@@ -50,6 +51,7 @@ GromitPaintContext *paint_context_new (GromitData *data,
   context->type = type;
   context->width = width;
   context->arrowsize = arrowsize;
+  context->arrow_type = arrowtype;
   context->minwidth = minwidth;
   context->maxwidth = maxwidth;
   context->paint_color = paint_color;
@@ -84,6 +86,10 @@ void paint_context_print (gchar *name,
   {
     case GROMIT_PEN:
       g_printerr ("Pen,     "); break;
+    case GROMIT_LINE:
+      g_printerr ("Line,    "); break;
+    case GROMIT_RECT:
+      g_printerr ("Rect,    "); break;
     case GROMIT_ERASER:
       g_printerr ("Eraser,  "); break;
     case GROMIT_RECOLOR:
@@ -96,6 +102,20 @@ void paint_context_print (gchar *name,
   g_printerr ("minwidth: %u, ", context->minwidth);
   g_printerr ("maxwidth: %u, ", context->maxwidth);
   g_printerr ("arrowsize: %.2f, ", context->arrowsize);
+  if (context->arrowsize > 0)
+    {
+      switch (context->arrow_type) {
+      case GROMIT_ARROW_START:
+        g_printerr(" arrowtype: start,  ");
+        break;
+      case GROMIT_ARROW_END:
+        g_printerr(" arrowtype: end,    ");
+        break;
+      case GROMIT_ARROW_DOUBLE:
+        g_printerr(" arrowtype: double, ");
+        break;
+      }
+    }
   g_printerr ("color: %s\n", gdk_rgba_to_string(context->paint_color));
 }
 
@@ -592,8 +612,10 @@ void setup_main_app (GromitData *data, int argc, char ** argv)
       cairo_surface_destroy(data->undobuffer[i]);
       data->undobuffer[i] = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, data->width, data->height);
     }
-  
 
+  // original state for LINE and RECT tool
+  cairo_surface_destroy(data->aux_backbuffer);
+  data->aux_backbuffer = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, data->width, data->height);
 
   /* EVENTS */
   gtk_widget_add_events (data->win, GROMIT_WINDOW_EVENTS);
@@ -752,12 +774,12 @@ void setup_main_app (GromitData *data, int argc, char ** argv)
  
   data->modified = 0;
 
-  data->default_pen = paint_context_new (data, GROMIT_PEN,
-					 data->red, 7, 0, 1, G_MAXUINT);
-  data->default_eraser = paint_context_new (data, GROMIT_ERASER,
-					    data->red, 75, 0, 1, G_MAXUINT);
-
-  
+  data->default_pen =
+    paint_context_new (data, GROMIT_PEN, data->red, 7,
+                       0, GROMIT_ARROW_END, 1, G_MAXUINT);
+  data->default_eraser =
+    paint_context_new (data, GROMIT_ERASER, data->red, 75,
+                       0, GROMIT_ARROW_END, 1, G_MAXUINT);
 
   gdk_event_handler_set ((GdkEventFunc) main_do_event, data, NULL);
   gtk_key_snooper_install (snoop_key_press, data);
@@ -798,6 +820,7 @@ void setup_main_app (GromitData *data, int argc, char ** argv)
 
   GtkWidget* sep1_item = gtk_separator_menu_item_new();
   GtkWidget* intro_item = gtk_menu_item_new_with_mnemonic(_("_Introduction"));
+  GtkWidget* issues_item = gtk_menu_item_new_with_mnemonic(_("_Report Bug / Request Feature"));
   GtkWidget* support_item = gtk_menu_item_new_with_mnemonic(_("_Support Gromit-MPX"));
   GtkWidget* about_item = gtk_menu_item_new_with_mnemonic(_("_About"));
 
@@ -819,6 +842,7 @@ void setup_main_app (GromitData *data, int argc, char ** argv)
 
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), sep1_item);
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), intro_item);
+  gtk_menu_shell_append (GTK_MENU_SHELL (menu), issues_item);
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), support_item);
   gtk_menu_shell_append (GTK_MENU_SHELL (menu), about_item);
 
@@ -880,6 +904,9 @@ void setup_main_app (GromitData *data, int argc, char ** argv)
   g_signal_connect(G_OBJECT (intro_item), "activate",
 		   G_CALLBACK (on_intro),
 		   data);
+  g_signal_connect(G_OBJECT (issues_item), "activate",
+		   G_CALLBACK (on_issues),
+		   data);
   g_signal_connect(G_OBJECT (about_item), "activate",
 		   G_CALLBACK (on_about),
 		   NULL);
@@ -901,6 +928,7 @@ void setup_main_app (GromitData *data, int argc, char ** argv)
 
   gtk_widget_show (sep1_item);
   gtk_widget_show (intro_item);
+  gtk_widget_show (issues_item);
   gtk_widget_show (support_item);
   gtk_widget_show (about_item);
 

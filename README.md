@@ -133,8 +133,8 @@ second keyboard at hand, you can also toggle a specific pointer via
 `--toggle <device-number>`, where device-number is Gromit-MPX's internal
 device number, not the XInput ID.
 
-Alternatively, you can also use the graphical tool [gnome-device-
-manager](https://github.com/bk138/gnome-device-manager) to arrange your
+Alternatively, you can also use the graphical tool [input-device-
+manager](https://github.com/bk138/input-device-manager) to arrange your
 MPX setup.
 
 ### Configuration
@@ -176,9 +176,12 @@ not allowed to change size:
 
 	"red fixed Marker" = "red Pen" (minsize=10 maxsize=10);
 
-You can also draw lines that end in an arrow head. For this you
-have to specify `arrowsize`. This is a factor relative to the width
-of the line. For reasonable arrowheads start with 1.
+You can also draw lines that start and/or end in an arrow head. For
+this you have to specify `arrowsize` and optionally `arrowtype`.
+`arrowsize` is a factor relative to the width of the line. For
+reasonable arrowheads start with 1.
+`arrowtype` can take `start`, `end` or `double` and defaults to `end`
+when `arrowsize` is specified and no `arrowtype` given. 
 
     "blue Pen" = "blue Arrow" (arrowsize=2);
 
@@ -191,6 +194,14 @@ A `RECOLOR`-Tool changes the color of the drawing without changing
 the shape. Try it out to see the effect.
 
     "green Marker" = RECOLOR (color = "Limegreen");
+
+A `LINE`-tool draws straight lines.
+
+    "green Line" = LINE (color = "green");
+
+A `RECT`-tool draws rectangles.
+
+    "red Rectangle" = RECT (color = "red");
 
 If you define a tool with the same name as an input-device
 (see the output of `xinput --list`) this input-device uses this tool:
@@ -271,7 +282,9 @@ from the root of the source tree.
 * [ ] Update authors in About dialog and AUTHORS file.
 * [ ] Update AppStream.
 * [ ] Update ChangeLog.
-
+* [ ] Fill out GitHub release.
+* [ ] Make Flathub release.
+* [ ] Announce on social.
 
 ## Potential Problems
 
