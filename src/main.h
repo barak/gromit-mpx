@@ -59,13 +59,15 @@
 #define GA_TOGGLEDATA gdk_atom_intern ("Gromit/toggledata", FALSE)
 #define GA_LINEDATA   gdk_atom_intern ("Gromit/linedata", FALSE)
 
-#define GROMIT_MAX_UNDO 4
+#define GROMIT_MAX_UNDO 100
 
 typedef enum
 {
   GROMIT_PEN,
   GROMIT_LINE,
   GROMIT_RECT,
+  GROMIT_SMOOTH,
+  GROMIT_ORTHOGONAL,
   GROMIT_ERASER,
   GROMIT_RECOLOR
 } GromitPaintType;
@@ -85,6 +87,11 @@ typedef struct
   GromitArrowType arrow_type;
   guint           minwidth;
   guint           maxwidth;
+  guint           radius;
+  guint           minlen;
+  guint           maxangle;
+  guint           simplify;
+  guint           snapdist;
   GdkRGBA         *paint_color;
   cairo_t         *paint_ctx;
   gdouble         pressure;
@@ -153,9 +160,14 @@ typedef struct
 
   gchar       *clientdata;
 
-  cairo_surface_t *undobuffer[GROMIT_MAX_UNDO];
-  gint            undo_head, undo_depth, redo_depth;
-
+  /* undo buffer */
+  gchar  *undo_buffer[GROMIT_MAX_UNDO];
+  size_t undo_buffer_size[GROMIT_MAX_UNDO];
+  size_t undo_buffer_used[GROMIT_MAX_UNDO];
+  gchar *undo_temp;
+  size_t undo_temp_size;
+  size_t undo_temp_used;
+  gint   undo_head, undo_depth, redo_depth;
 
   gboolean show_intro_on_startup;
 
@@ -171,16 +183,19 @@ void parse_print_help (gpointer key, gpointer value, gpointer user_data);
 void select_tool (GromitData *data, GdkDevice *device, GdkDevice *slave_device, guint state);
 
 void copy_surface (cairo_surface_t *dst, cairo_surface_t *src);
-void swap_surfaces (cairo_surface_t *a, cairo_surface_t *b);
-void snap_undo_state (GromitData *data);
+void snap_undo_state(GromitData *data);
 void undo_drawing (GromitData *data);
 void redo_drawing (GromitData *data);
+void undo_compress(GromitData *data, cairo_surface_t *surface);
+void undo_temp_buffer_to_slot(GromitData *data, gint undo_slot);
+void undo_decompress(GromitData *data, gint undo_slot, cairo_surface_t *surface);
 
 void clear_screen (GromitData *data);
 
 GromitPaintContext *paint_context_new (GromitData *data, GromitPaintType type,
 				       GdkRGBA *fg_color, guint width,
                                        guint arrowsize, GromitArrowType arrowtype,
+                                       guint simpilfy, guint radius, guint maxangle, guint minlen, guint snapdist,
                                        guint minwidth, guint maxwidth);
 void paint_context_free (GromitPaintContext *context);
 

@@ -3,7 +3,7 @@ project(gromit-mpx LANGUAGES C)
 include(GNUInstallDirs)
 
 set(target_name gromit-mpx)
-set(version 1.6.0)
+set(version 1.7.0)
 set(LOCALE_DOMAIN ${CMAKE_PROJECT_NAME})
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(CMAKE_GENERATOR MATCHES "Unix Makefiles|Ninja")
@@ -29,6 +29,7 @@ if(NOT appindicator3_FOUND)
   pkg_check_modules(appindicator3 REQUIRED "appindicator3-0.1 >= 0.4.92")
   set(APPINDICATOR_IS_LEGACY 1)
 endif()
+pkg_check_modules(lz4 REQUIRED liblz4)
 
 configure_file(build-config.h_cmake_in build-config.h)
 
@@ -38,6 +39,7 @@ include_directories(
     ${appindicator3_INCLUDE_DIRS}
     ${xinput_INCLUDE_DIRS}
     ${x11_INCLUDE_DIRS}
+    ${lz4_INCLUDE_DIRS}
 )
 
 link_directories(
@@ -45,6 +47,7 @@ link_directories(
     ${appindicator3_LIBRARY_DIRS}
     ${xinput_LIBRARY_DIRS}
     ${x11_LIBRARY_DIRS}
+    ${lz4_LIBRARY_DIRS}
 )
 
 set(sources
@@ -54,6 +57,8 @@ set(sources
     src/config.h
     src/drawing.c
     src/drawing.h
+    src/coordlist_ops.c
+    src/coordlist_ops.h
     src/main.c
     src/main.h
     src/input.c
@@ -69,6 +74,7 @@ target_link_libraries(${target_name}
     ${appindicator3_LIBRARIES}
     ${xinput_LIBRARIES}
     ${x11_LIBRARIES}
+    ${lz4_LIBRARIES}
     -lm
 )
 
