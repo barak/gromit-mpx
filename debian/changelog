@@ -1,6 +1,7 @@
 gromit-mpx (1.7.0-1) unstable; urgency=medium
 
   * New upstream version
+  * New build dependency on lz4 library
 
  -- Barak A. Pearlmutter <bap@debian.org>  Wed, 11 Sep 2024 11:39:30 +0100
 
