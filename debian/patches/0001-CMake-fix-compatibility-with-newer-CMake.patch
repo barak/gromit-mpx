@@ -1,0 +1,25 @@
+From 23c6fc679d90726faded50e1e363c08a152e14b1 Mon Sep 17 00:00:00 2001
+From: Andrew Marshall <andrew@johnandrewmarshall.com>
+Date: Sun, 12 Oct 2025 09:59:16 -0400
+Subject: CMake: fix compatibility with newer CMake
+
+CMake 4.0 removed compatibility for CMake < 3.5. This increases to
+explicitly declare support for up to 3.10 (the oldest non-deprecated
+version), thereby fixing the build on CMake 4.0.
+---
+ CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 11ab986..b975076 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.0)
++cmake_minimum_required(VERSION 3.0...3.10)
+ project(gromit-mpx LANGUAGES C)
+ include(GNUInstallDirs)
+ 
+-- 
+2.30.2
+
