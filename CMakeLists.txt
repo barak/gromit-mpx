@@ -1,9 +1,9 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.0...3.10)
 project(gromit-mpx LANGUAGES C)
 include(GNUInstallDirs)
 
 set(target_name gromit-mpx)
-set(version 1.7.0)
+set(version 1.8.0)
 set(LOCALE_DOMAIN ${CMAKE_PROJECT_NAME})
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(CMAKE_GENERATOR MATCHES "Unix Makefiles|Ninja")
@@ -63,8 +63,6 @@ set(sources
     src/main.h
     src/input.c
     src/input.h
-    src/paint_cursor.xpm
-    src/erase_cursor.xpm
 )
 
 add_executable(${target_name} ${sources})
@@ -85,6 +83,10 @@ GETTEXT_PROCESS_PO_FILES(fa ALL PO_FILES po/fa.po)
 GETTEXT_PROCESS_PO_FILES(he ALL PO_FILES po/he.po)
 GETTEXT_PROCESS_PO_FILES(it ALL PO_FILES po/it.po)
 GETTEXT_PROCESS_PO_FILES(pt_BR ALL PO_FILES po/pt_BR.po)
+GETTEXT_PROCESS_PO_FILES(zh_CN ALL PO_FILES po/zh_CN.po)
+GETTEXT_PROCESS_PO_FILES(zh_TW ALL PO_FILES po/zh_TW.po)
+GETTEXT_PROCESS_PO_FILES(zh_HK ALL PO_FILES po/zh_HK.po)
+GETTEXT_PROCESS_PO_FILES(zh_SG ALL PO_FILES po/zh_SG.po)
 
 install(TARGETS ${target_name} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES data/net.christianbeier.Gromit-MPX.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
@@ -93,6 +95,7 @@ install(FILES README.md AUTHORS ChangeLog NEWS.md DESTINATION ${CMAKE_INSTALL_DO
 install(FILES gromit-mpx.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
 install(FILES data/net.christianbeier.Gromit-MPX.png data/net.christianbeier.Gromit-MPX.active.png DESTINATION ${CMAKE_INSTALL_DATADIR}/pixmaps)
 install(FILES data/net.christianbeier.Gromit-MPX.svg data/net.christianbeier.Gromit-MPX.active.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
+install(FILES data/net.christianbeier.Gromit-MPX.paint_cursor.png data/net.christianbeier.Gromit-MPX.erase_cursor.png DESTINATION ${CMAKE_INSTALL_DATADIR}/pixmaps)
 install(FILES data/net.christianbeier.Gromit-MPX.appdata.xml DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/de.gmo DESTINATION ${CMAKE_INSTALL_DATADIR}/locale/de/LC_MESSAGES/ RENAME ${LOCALE_DOMAIN}.mo)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/es.gmo DESTINATION ${CMAKE_INSTALL_DATADIR}/locale/es/LC_MESSAGES/ RENAME ${LOCALE_DOMAIN}.mo)
@@ -100,6 +103,10 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/it.gmo DESTINATION ${CMAKE_INSTALL_DAT
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/fa.gmo DESTINATION ${CMAKE_INSTALL_DATADIR}/locale/fa/LC_MESSAGES/ RENAME ${LOCALE_DOMAIN}.mo)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/he.gmo DESTINATION ${CMAKE_INSTALL_DATADIR}/locale/he/LC_MESSAGES/ RENAME ${LOCALE_DOMAIN}.mo)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/pt_BR.gmo DESTINATION ${CMAKE_INSTALL_DATADIR}/locale/pt_BR/LC_MESSAGES/ RENAME ${LOCALE_DOMAIN}.mo)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/zh_CN.gmo DESTINATION ${CMAKE_INSTALL_DATADIR}/locale/zh_CN/LC_MESSAGES/ RENAME ${LOCALE_DOMAIN}.mo)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/zh_TW.gmo DESTINATION ${CMAKE_INSTALL_DATADIR}/locale/zh_TW/LC_MESSAGES/ RENAME ${LOCALE_DOMAIN}.mo)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/zh_HK.gmo DESTINATION ${CMAKE_INSTALL_DATADIR}/locale/zh_HK/LC_MESSAGES/ RENAME ${LOCALE_DOMAIN}.mo)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/zh_SG.gmo DESTINATION ${CMAKE_INSTALL_DATADIR}/locale/zh_SG/LC_MESSAGES/ RENAME ${LOCALE_DOMAIN}.mo)
 
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"

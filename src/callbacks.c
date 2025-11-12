@@ -281,7 +281,7 @@ gboolean on_buttonpress (GtkWidget *win,
   GromitPaintType type = devdata->cur_context->type;
 
   // store original state to have dynamic update of line and rect
-  if (type == GROMIT_LINE || type == GROMIT_RECT || type == GROMIT_SMOOTH || type == GROMIT_ORTHOGONAL)
+  if (type == GROMIT_LINE || type == GROMIT_RECT || type == GROMIT_SMOOTH || type == GROMIT_ORTHOGONAL || type == GROMIT_CIRCLE)
     {
       copy_surface(data->aux_backbuffer, data->backbuffer);
     }
@@ -391,7 +391,7 @@ gboolean on_motion (GtkWidget *win,
 
       if(devdata->motion_time > 0)
 	{
-          if (type == GROMIT_LINE || type == GROMIT_RECT) {
+          if (type == GROMIT_LINE || type == GROMIT_RECT || type == GROMIT_CIRCLE) {
             copy_surface(data->backbuffer, data->aux_backbuffer);
             GdkRectangle rect = {0, 0, data->width, data->height};
             gdk_window_invalidate_rect(gtk_widget_get_window(data->win), &rect, 0);
@@ -403,13 +403,13 @@ gboolean on_motion (GtkWidget *win,
               if (devdata->cur_context->arrowsize > 0)
                 {
                   GromitArrowType atype = devdata->cur_context->arrow_type;
-                  gint width = devdata->cur_context->arrowsize * devdata->cur_context->width / 2;
+                  gfloat width = devdata->cur_context->arrowsize * devdata->cur_context->width;
                   gfloat direction =
                       atan2(ev->y - devdata->lasty, ev->x - devdata->lastx);
                   if (atype & GROMIT_ARROW_END)
-                    draw_arrow(data, ev->device, ev->x, ev->y, width * 2, direction);
+                    draw_arrow(data, ev->device, ev->x, ev->y, width, direction);
                   if (atype & GROMIT_ARROW_START)
-                    draw_arrow(data, ev->device, devdata->lastx, devdata->lasty, width * 2, M_PI + direction);
+                    draw_arrow(data, ev->device, devdata->lastx, devdata->lasty, width, M_PI + direction);
                 }
             }
           else if (type == GROMIT_RECT)
@@ -419,6 +419,11 @@ gboolean on_motion (GtkWidget *win,
               draw_line (data, ev->device, ev->x, ev->y, devdata->lastx, ev->y);
               draw_line (data, ev->device, devdata->lastx, ev->y, devdata->lastx, devdata->lasty);
             }
+          else if (type == GROMIT_CIRCLE)
+            {
+              float radius = sqrt(pow(ev->x - devdata->lastx, 2) + pow(ev->y - devdata->lasty, 2));
+              draw_circle (data, ev->device, devdata->lastx, devdata->lasty, radius);
+            }
           else
             {
               draw_line (data, ev->device, devdata->lastx, devdata->lasty, ev->x, ev->y);
@@ -427,7 +432,7 @@ gboolean on_motion (GtkWidget *win,
 	}
     }
 
-  if (type != GROMIT_LINE && type != GROMIT_RECT)
+  if (type != GROMIT_LINE && type != GROMIT_RECT && type != GROMIT_CIRCLE)
     {
       devdata->lastx = ev->x;
       devdata->lasty = ev->y;
@@ -487,6 +492,16 @@ gboolean on_buttonrelease (GtkWidget *win,
           ptr = ptr->next;
           draw_line (data, ev->device, c1->x, c1->y, c2->x, c2->y);
         }
+    }
+  else if (type == GROMIT_CIRCLE)
+    {
+      float radius = sqrt(pow(ev->x - devdata->lastx, 2) + pow(ev->y - devdata->lasty, 2));
+
+      copy_surface(data->backbuffer, data->aux_backbuffer);
+      GdkRectangle rect = {0, 0, data->width, data->height};
+      gdk_window_invalidate_rect(gtk_widget_get_window(data->win), &rect, 0);
+
+      draw_circle (data, ev->device, devdata->lastx, devdata->lasty, radius);
     }
 
   if (ctx->arrowsize != 0)
@@ -838,6 +853,13 @@ void on_about(GtkMenuItem *menuitem,
 				"godmar <godmar@gmail.com>",
 				"Ashwin Rajesh <46510831+VanillaViking@users.noreply.github.com>",
                                 "Pascal Niklaus <pascal.niklaus@ieu.uzh.ch>",
+                                "Renato Lima <natenho@gmail.com>",
+                                "yzemaze <dev@yzemaze.de>",
+                                "woodhead2019 <52210283+woodhead2019@users.noreply.github.com>",
+                                "Leonardo Taccari <leot@NetBSD.org>",
+                                "Andrew Marshall <andrew@johnandrewmarshall.com>",
+                                "gavine99 <63904295+gavine99@users.noreply.github.com>",
+                                "Marcin Orlowski <mail@marcinOrlowski.com>",
 				NULL };
     gtk_show_about_dialog (NULL,
 			   "program-name", "Gromit-MPX",
@@ -847,7 +869,7 @@ void on_about(GtkMenuItem *menuitem,
 			   "version", PACKAGE_VERSION,
 			   "website", PACKAGE_URL,
 			   "authors", authors,
-			   "copyright", "2009-2024 Christian Beier, Copyright 2000 Simon Budig",
+			   "copyright", "2009-2025 Christian Beier, Copyright 2000 Simon Budig",
 			   "license-type", GTK_LICENSE_GPL_2_0,
 			   NULL);
 }

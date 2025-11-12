@@ -69,7 +69,8 @@ typedef enum
   GROMIT_SMOOTH,
   GROMIT_ORTHOGONAL,
   GROMIT_ERASER,
-  GROMIT_RECOLOR
+  GROMIT_RECOLOR,
+  GROMIT_CIRCLE
 } GromitPaintType;
 
 typedef enum
@@ -93,6 +94,7 @@ typedef struct
   guint           simplify;
   guint           snapdist;
   GdkRGBA         *paint_color;
+  GdkRGBA         *fill_color;
   cairo_t         *paint_ctx;
   gdouble         pressure;
 } GromitPaintContext;
@@ -194,8 +196,8 @@ void clear_screen (GromitData *data);
 
 GromitPaintContext *paint_context_new (GromitData *data, GromitPaintType type,
 				       GdkRGBA *fg_color, guint width,
-                                       guint arrowsize, GromitArrowType arrowtype,
-                                       guint simpilfy, guint radius, guint maxangle, guint minlen, guint snapdist,
+                                       gfloat arrowsize, GromitArrowType arrowtype,
+                                       guint simplify, guint radius, guint maxangle, guint minlen, guint snapdist,
                                        guint minwidth, guint maxwidth);
 void paint_context_free (GromitPaintContext *context);
 

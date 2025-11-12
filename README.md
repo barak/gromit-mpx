@@ -6,7 +6,7 @@
 [![Donate](https://img.shields.io/badge/paypal-donate-yellow.png)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=N7GSSPRPUSTPU&source=url)
 [![Gitter](https://badges.gitter.im/gromit-mpx/community.svg)](https://gitter.im/gromit-mpx/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
-[<img src="https://flathub.org/assets/badges/flathub-badge-i-en.png" width="190px" />](https://flathub.org/apps/details/net.christianbeier.Gromit-MPX)
+[<img src="https://flathub.org/api/badge?svg&light" width="190px" />](https://flathub.org/apps/details/net.christianbeier.Gromit-MPX)
 
 Gromit-MPX is an on-screen annotation tool that works with any Unix
 desktop environment under X11 as well as Wayland.
@@ -211,6 +211,39 @@ A `RECT`-tool draws rectangles.
 ![RECT tool](data/tool-rect.webp)
 
     "red Rectangle" = RECT (color = "red");
+
+A `CIRCLE`-tool draws circles. You can create both outlined and filled circles.
+
+![CIRCLE tool](data/tool-circle.webp)
+
+For a simple outlined circle, just specify the color and size:
+
+```
+"blue Circle" = CIRCLE (color="blue" size=3);
+```
+
+For a filled circle, add the `fillcolor` parameter to define the interior color while the
+outline uses the regular `color` value:
+
+```
+"red Filled Circle" = CIRCLE (color="black" size=3 fillcolor="red");
+```
+
+For semi-transparent fills, use the rgba() format to specify opacity (the alpha value ranges from 
+0.0 to 1.0):
+
+```
+"semi-transparent blue Circle" = CIRCLE (color="black" size=3 fillcolor="rgba(0, 0, 255, 0.5)");
+```
+
+Tip: If you define outlined and filled circles with the same hotkeys but different modifiers
+(e.g., `ALT` for outlined, `ALT`+`SHIFT` for filled), you can toggle between circle types on
+the fly by pressing or releasing the modifier key (`SHIFT`) while drawing:
+
+```
+"default"[ALT] = "blue Circle";              # Outlined circle with ALT
+"default"[ALT,SHIFT] = "red Filled Circle";  # Filled circle with ALT+SHIFT
+```
 
 A `SMOOTH`-tool that behaves like `PEN` except that it produces smoothed curves.
 The degree of smoothing can be specified using `simplify=N`. `N` can
