@@ -1,3 +1,10 @@
+gromit-mpx (1.8.0-1) unstable; urgency=medium
+
+  * New upstream version
+  * Update packaging scripts
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Wed, 12 Nov 2025 12:55:03 +0000
+
 gromit-mpx (1.7.0-2) unstable; urgency=medium
 
   [ Adrian Bunk ]
